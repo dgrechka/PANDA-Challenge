@@ -11,7 +11,7 @@ images = [x for x in images if x.endswith(".tiff")]
 #print(images)
 
 
-toOpen = os.path.join(citoImagesPath,images[0])
+toOpen = os.path.join(citoImagesPath,images[2])
 
 print("file exists {0}".format(os.path.exists(toOpen)))
 
@@ -19,7 +19,8 @@ print("file exists {0}".format(os.path.exists(toOpen)))
 print("Attempting to open {0}".format(toOpen))
 
 im = io.imread(toOpen)
-print("Read")
+
+print("Read. shape {0}".format(im.shape))
 #print(im)
 
 plt.figure()
