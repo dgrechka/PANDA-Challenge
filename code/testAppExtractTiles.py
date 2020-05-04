@@ -15,11 +15,17 @@ class TestExtractTile(unittest.TestCase):
     def setUp(self):
         datasetPath = "data\\kaggleOfficial"
         citoImagesPath = os.path.join(datasetPath,"train_images")        
-        #self.toOpen = os.path.join(citoImagesPath,"00a7fb880dc12c5de82df39b30533da9.tiff")
-        self.toOpen = os.path.join(citoImagesPath,"00a76bfbec239fd9f465d6581806ff42.tiff")
-        #print("file exists {0}".format(os.path.exists(self.toOpen)))
+        self.toOpen = os.path.join(citoImagesPath,"00a7fb880dc12c5de82df39b30533da9.tiff")
+        #self.toOpen = r"M:\Panda\officialData\train_images\00a76bfbec239fd9f465d6581806ff42.tiff"
+        #self.toOpen = r"//10.0.4.13/Machine_Learning/Panda/officialData/train_images/00a76bfbec239fd9f465d6581806ff42.tiff"
+        #self.toOpen = r"C:\ML\PANDA-Challenge\data\kaggleOfficial\train_images\00a76bfbec239fd9f465d6581806ff42.tiff"
+        
+        print("file exists {0}".format(os.path.exists(self.toOpen)))
+
+        open(self.toOpen,"r")
+        print("opened")
         #print("Attempting to open {0}".format(self.toOpen))
-        self.im = io.imread(self.toOpen)
+        self.im = io.imread(self.toOpen,plugin="tifffile")
         self.shape = self.im.shape
         #print("Read. shape {0}".format(self.im.shape))
 
@@ -42,7 +48,7 @@ class TestExtractTile(unittest.TestCase):
     def test_precomputed_tile_indices_return_the_same(self):
         tileSize = 1024
         precomputed,tiles = getNotEmptyTiles(self.im,tileSize)
-        precomputed2,tiles2 = getNotEmptyTiles(self.im,tileSize, precomputedTileIndices=precomputed)
+        _,tiles2 = getNotEmptyTiles(self.im,tileSize, precomputedTileIndices=precomputed)
         self.assertEqual(len(tiles),len(tiles2))
         for i in range(0,len(tiles)):
             t1,t2 = tiles[i],tiles2[i]

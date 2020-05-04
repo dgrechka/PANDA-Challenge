@@ -39,11 +39,11 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 255, precomputedTileIndi
                 tile = extractTileData(row_idx, col_idx)
                 # if the tile contains pure white pixels (no information) we skip it (do not return)
                 tileMin = np.nanmin(tile)
-                tileMedian = np.nanmedian(tile)
+                tileQuantile = np.quantile(tile,1/4)
                 #print("row {0} col {1} min_v {2}".format(row_idx,col_idx,tileMin))
                 if tileMin > 230: # too white! there is no dark areas
                     continue
-                if tileMedian > 240: # too many white pixels
+                if tileQuantile > 240: # too many white pixels
                     continue
 
                 tile = coerceTileSize(tile)
