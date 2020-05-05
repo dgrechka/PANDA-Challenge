@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-imageSize = 244
+imageSize = 224
 
 
 def constructModel(seriesLen):
@@ -15,9 +15,10 @@ def constructModel(seriesLen):
     denseNet.trainable = False
 
     converted = tf.keras.applications.densenet.preprocess_input(netInput)
-
-    cnnOut = tf.keras.layers.TimeDistributed(denseNet, name='cnns')(converted)  # Tx8x8x1024 in case of None pooling
-    cnnPooled = tf.keras.layers.TimeDistributed(tf.keras.layers.MaxPooling2D((8, 8)), name='cnnsPooled')(
+    print("converted input shape {0}".format(converted.shape))
+    cnnOut = tf.keras.layers.TimeDistributed(denseNet, name='cnns')(converted)  # Tx7x7x1024 in case of None pooling
+    print("cnn out shape {0}".format(cnnOut.shape))
+    cnnPooled = tf.keras.layers.TimeDistributed(tf.keras.layers.MaxPooling2D((7, 7)), name='cnnsPooled')(
         cnnOut)  # Tx1x1x1024
     cnnPooledReshaped = tf.keras.layers.TimeDistributed(tf.keras.layers.Reshape((1024,)), name='cnnsPooledReshaped')(
         cnnPooled)  # Tx1024
