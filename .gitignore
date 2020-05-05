@@ -1,6 +1,7 @@
 data
 venv
 .vscode
+**/__pycache__
 // ---alpheus-managed-start---
 **/*.hash
 .alpheus/storage
