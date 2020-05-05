@@ -1,0 +1,42 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "..\\..\\..\\code\\CreateKFoldsGleasonScore.R",
+            "Hash": "C6CA0CF5F1D45DF4FFA1A00818046FC5C47CA2BD479D8AC8EC075B00411E9283265F3F75731D9617E6327A97A2673842A3A9C268D9CD608F9E9E187F90F21490"
+          },
+          {
+            "RelativePath": "..\\..\\kaggleOfficial\\train.csv",
+            "Hash": "9C4CCB14E63AE5DFB8125B1CED079405E2664E8EF20A7FA6363F6A50BBCCA4C28392474EBD8C654161F2EFF4CAF89E7A3A662BF80B4465DC8C24C6FAD803D806"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "*.csv",
+            "Hash": {
+              "fold_1_val_rows": "BBB439747E2E597FAF19C6475C77C3CDBEA381B1175EDFAFA4EC15A61202BA4FD357E7A81F1FD0E57D3A1E0DE63CA1B477F89AD5AA6D44328E0F3EB997C11DA8",
+              "fold_2_val_rows": "3C2173C4499F5C10671E410D397E97059D88F19284FDE4FF77A59C31096A1FDFB4EA711AF86030CDD1ADB05E316F42A3A20855C3EB2A849225363DAB94BED2AF",
+              "fold_3_val_rows": "F85E3DE8E5C97B3BB9C284025021572470AD4420C85778151732F633C337A452B1684B8BA560C4C4A412CF80C01579E9F997F7D4CA29F47818FFC4D6BA02C487",
+              "fold_4_val_rows": "E22188DDADBB85EAB02634E65E78AF405439AED4C8BE5BC7F080DBDFC81F3E118D14A20CD831136C665DACFC01D1C4A6803613ED724F901D439EA3F803E1D97F",
+              "fold_5_val_rows": "3BFA9E3C0C405CFCECDED3B71EDE7675E1C42AEA38B00F5A1F65F9B380C70316202E2C32C8935AC4335D8BAA498CA7FEC80F557509B4DBEB2A33424D3988C1F3"
+            }
+          }
+        ],
+        "ResourceGroups": [],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "..\\..\\..",
+        "Command": "Rscript $in1 $in2 data\\trValStplits\\5foldGleasonScore\\",
+        "Signature": "77205B539B93347FA3813999FEC0DDFB1AF668E8",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

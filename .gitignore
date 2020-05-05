@@ -1,3 +1,7 @@
 data
 venv
 .vscode
+// ---alpheus-managed-start---
+**/*.hash
+.alpheus/storage
+// ---alpheus-managed-end---
