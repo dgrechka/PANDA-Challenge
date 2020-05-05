@@ -18,15 +18,30 @@ tf.autograph.set_verbosity(0)
 
 cytoImagePath = sys.argv[1]
 labelsPath = sys.argv[2]
-outputPath =sys.argv[3]
+valRowsPath = sys.argv[3]
+outputPath =sys.argv[4]
 
 
 labelsDf = pd.read_csv(labelsPath, engine='python')
+valIdxDf = pd.read_csv(valRowsPath, engine='python')
+valIdx = valIdxDf.iloc[:,0]
+#   print(valIdxDf)
 
-idents = labelsDf.iloc[:,0]
-labels = labelsDf.iloc[:,2]
+vaLabelsDf  = labelsDf.iloc[list(valIdx),:]
+trLabelsDf = labelsDf[~labelsDf.index.isin(vaLabelsDf.index)]
 
-N = len(idents)
+trIdents = list(trLabelsDf.iloc[:,0])
+trLabels = list(trLabelsDf.iloc[:,2])
+vaIdents = list(vaLabelsDf.iloc[:,0])
+vaLabels = list(vaLabelsDf.iloc[:,2])
+
+#print("tf idents")
+#print(trIdents)
+
+trSamplesCount = len(trLabelsDf)
+vaSamplesCount = len(vaLabelsDf)
+
+print("{0} training samples, {1} val sample, {2} samples in total".format(trSamplesCount, vaSamplesCount, len(labelsDf)))
 
 tileSize = 1024
 nnTileSize = 224
@@ -41,7 +56,7 @@ tf.random.set_seed(seed+151)
 tileIndexCache = dict()
 tileIndexCacheLock = threading.Semaphore(1)
 
-trSamples = N
+
 
 def getDataSet(idents,labels):
     def samplesGenerator():
@@ -121,14 +136,19 @@ def downscale(imagePack,label):
 # TODO: shuffle slices
 # TODO: augment slices
 
-
-tr_ds = getDataSet(idents,labels)
-tr_ds = tr_ds \
+trDs = getDataSet(trIdents,trLabels) \
     .map(loadImage, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .repeat() \
     .shuffle(shuffleBufferSize,seed=seed+31) \
+    .batch(batchSize, drop_remainder=False) \
+    .prefetch(prefetchSize)
+
+valDs = getDataSet(vaIdents,vaLabels) \
+    .map(loadImage, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
@@ -195,7 +215,7 @@ callbacks = [
             mode='min',
             save_weights_only=True,
             #monitor='val_root_recall'
-            mintor='loss'
+            mintor='val_loss'
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
@@ -222,16 +242,15 @@ model.compile(
 print("model compiled")
 print(model.summary())
 
-model.fit(x = tr_ds, \
-      #validation_data = va_ds,
-      #validation_steps = 1024//batch_size,
+model.fit(x = trDs, \
+      validation_data = valDs,
+      validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
       #initial_epoch=initial_epoch,
       verbose = 1,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
-      steps_per_epoch= int(math.ceil(trSamples / batchSize)),
+      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize)),
       epochs=5)
-
 
 print("Done")
 
