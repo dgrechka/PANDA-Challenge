@@ -12,6 +12,9 @@ from libExtractTile import getNotEmptyTiles
 from modelA import constructModel
 from skimage import io
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'} 3 - error, 0 - debug
+tf.get_logger().setLevel("ERROR")
+tf.autograph.set_verbosity(0)
 
 cytoImagePath = sys.argv[1]
 labelsPath = sys.argv[2]
@@ -27,7 +30,7 @@ N = len(idents)
 
 tileSize = 1024
 nnTileSize = 224
-batchSize = 1
+batchSize = 4
 shuffleBufferSize = 32
 prefetchSize = 16
 trainSequenceLength = 64
@@ -48,39 +51,45 @@ def getDataSet(idents,labels):
             label = labels[i]
             toOpen = os.path.join(cytoImagePath,"{0}.tiff".format(ident))
             
-            yield (toOpen, label) 
+            yield (toOpen, ident, label) 
 
     return tf.data.Dataset.from_generator( 
         samplesGenerator, 
-        (tf.uint8, tf.uint8), 
-        (tf.TensorShape([None,tileSize,tileSize,3]), tf.TensorShape([]))) 
+        (tf.string, tf.string, tf.uint8), 
+        (tf.TensorShape([]), tf.TensorShape([]), tf.TensorShape([]))) 
 
 
-tr_ds = getDataSet(idents,labels)
 
-def loadImage(imagePath,label):
-    def loadAndDecode(path):
-        print("openning {0}".format(path))
-        return io.imread(path)
+def loadImage(imagePath,ident,label):
+    def loadAsTilePack(path,ident):
+        path = path.numpy().decode("utf-8")
+        ident = ident.numpy().decode("utf-8")
+        #print("openning {0}".format(path))
+        image = io.imread(path)
 
+        tileIndexCacheLock.acquire()
+        if ident in tileIndexCache:
+            precomputedTileIndeces = tileIndexCache[ident]
+        else:
+            precomputedTileIndeces = None
+        tileIndexCacheLock.release()
+
+        indices,tiles = getNotEmptyTiles(image,tileSize, precomputedTileIndeces)
+
+        tileIndexCacheLock.acquire()
+        tileIndexCache[ident] = indices
+        tileIndexCacheLock.release()
+
+        T = len(indices)
+
+        npTiles = np.stack(tiles,axis=0)
+        #print(npTiles)
+        return npTiles, T
     
-    image = tf.py_function(func=loadAndDecode, inp=[imagePath], Tout=tf.uint8)
+    imagePack,tileCount = tf.py_function(func=loadAsTilePack, inp=[imagePath,ident], Tout=(tf.uint8, tf.int32)) 
+    imagePack = tf.reshape(imagePack,[tileCount,tileSize,tileSize,3])
+    return imagePack, label
     
-    tileIndexCacheLock.acquire()
-    if ident in tileIndexCache:
-        precomputedTileIndeces = tileIndexCache[ident]
-    else:
-        precomputedTileIndeces = None
-    tileIndexCacheLock.release()
-
-    indices,tiles = getNotEmptyTiles(image,tileSize, precomputedTileIndeces)
-
-    tileIndexCacheLock.acquire()
-    tileIndexCache[ident] = indices
-    tileIndexCacheLock.release()
-
-    npTiles = np.stack(tiles,axis=0)
-    #print(npTiles)
 
 def coerceSeqSize(imagePack, label):
   imagePackShape = tf.shape(imagePack)
@@ -111,12 +120,15 @@ def downscale(imagePack,label):
 
 # TODO: shuffle slices
 # TODO: augment slices
-# .shuffle(shuffleBufferSize,seed=seed+31) \
-    
+
+
+tr_ds = getDataSet(idents,labels)
 tr_ds = tr_ds \
+    .map(loadImage, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .repeat() \
+    .shuffle(shuffleBufferSize,seed=seed+31) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
