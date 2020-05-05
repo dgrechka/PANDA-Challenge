@@ -23,12 +23,18 @@ outputPath =sys.argv[4]
 
 
 labelsDf = pd.read_csv(labelsPath, engine='python')
+
 valIdxDf = pd.read_csv(valRowsPath, engine='python')
 valIdx = valIdxDf.iloc[:,0]
 #   print(valIdxDf)
 
 vaLabelsDf  = labelsDf.iloc[list(valIdx),:]
 trLabelsDf = labelsDf[~labelsDf.index.isin(vaLabelsDf.index)]
+
+# debug run of srinked DS
+#trLabelsDf = trLabelsDf.iloc[0:500,]
+#vaLabelsDf = vaLabelsDf.iloc[0:100,]
+
 
 trIdents = list(trLabelsDf.iloc[:,0])
 trLabels = list(trLabelsDf.iloc[:,2])
@@ -45,8 +51,8 @@ print("{0} training samples, {1} val sample, {2} samples in total".format(trSamp
 
 tileSize = 1024
 nnTileSize = 224
-batchSize = 4
-shuffleBufferSize = 32
+batchSize = 2
+shuffleBufferSize = 128
 prefetchSize = 16
 trainSequenceLength = 64
 seed = 35372932
@@ -96,14 +102,18 @@ def loadImage(imagePath,ident,label):
         tileIndexCacheLock.release()
 
         T = len(indices)
-
-        npTiles = np.stack(tiles,axis=0)
-        #print(npTiles)
-        return npTiles, T
+        if T == 0: # guard againt empty tile set (all of the tiles are white!)
+            print("sample {0} does not contain suitable tiles! requires investigation!".format(ident))
+            return np.empty((1,1024,1024,3)), 1, False
+        else:
+            npTiles = np.stack(tiles,axis=0)
+            #print(npTiles)
+            return npTiles, T, True
     
-    imagePack,tileCount = tf.py_function(func=loadAsTilePack, inp=[imagePath,ident], Tout=(tf.uint8, tf.int32)) 
+    imagePack,tileCount,valid = tf.py_function(func=loadAsTilePack, inp=[imagePath,ident], Tout=(tf.uint8, tf.int32, tf.bool)) 
     imagePack = tf.reshape(imagePack,[tileCount,tileSize,tileSize,3])
-    return imagePack, label
+    resLabel = tf.cond(valid, lambda: label, lambda: tf.constant(255,dtype=tf.uint8))
+    return imagePack, resLabel
     
 
 def coerceSeqSize(imagePack, label):
@@ -136,8 +146,12 @@ def downscale(imagePack,label):
 # TODO: shuffle slices
 # TODO: augment slices
 
+def isValidPack(imagePack, label):
+    return label <= 5
+
 trDs = getDataSet(trIdents,trLabels) \
     .map(loadImage, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .filter(isValidPack) \
     .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .repeat() \
@@ -147,6 +161,7 @@ trDs = getDataSet(trIdents,trLabels) \
 
 valDs = getDataSet(vaIdents,vaLabels) \
     .map(loadImage, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .filter(isValidPack) \
     .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .batch(batchSize, drop_remainder=False) \
