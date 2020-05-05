@@ -47,25 +47,8 @@ def getDataSet(idents,labels):
             ident = idents[i]
             label = labels[i]
             toOpen = os.path.join(cytoImagePath,"{0}.tiff".format(ident))
-            #print("openning {0}".format(toOpen))
-            image = io.imread(toOpen)
             
-            tileIndexCacheLock.acquire()
-            if ident in tileIndexCache:
-                precomputedTileIndeces = tileIndexCache[ident]
-            else:
-                precomputedTileIndeces = None
-            tileIndexCacheLock.release()
-
-            indices,tiles = getNotEmptyTiles(image,tileSize, precomputedTileIndeces)
-
-            tileIndexCacheLock.acquire()
-            tileIndexCache[ident] = indices
-            tileIndexCacheLock.release()
-
-            npTiles = np.stack(tiles,axis=0)
-            #print(npTiles)
-            yield (npTiles, label) 
+            yield (toOpen, label) 
 
     return tf.data.Dataset.from_generator( 
         samplesGenerator, 
@@ -74,6 +57,30 @@ def getDataSet(idents,labels):
 
 
 tr_ds = getDataSet(idents,labels)
+
+def loadImage(imagePath,label):
+    def loadAndDecode(path):
+        print("openning {0}".format(path))
+        return io.imread(path)
+
+    
+    image = tf.py_function(func=loadAndDecode, inp=[imagePath], Tout=tf.uint8)
+    
+    tileIndexCacheLock.acquire()
+    if ident in tileIndexCache:
+        precomputedTileIndeces = tileIndexCache[ident]
+    else:
+        precomputedTileIndeces = None
+    tileIndexCacheLock.release()
+
+    indices,tiles = getNotEmptyTiles(image,tileSize, precomputedTileIndeces)
+
+    tileIndexCacheLock.acquire()
+    tileIndexCache[ident] = indices
+    tileIndexCacheLock.release()
+
+    npTiles = np.stack(tiles,axis=0)
+    #print(npTiles)
 
 def coerceSeqSize(imagePack, label):
   imagePackShape = tf.shape(imagePack)
