@@ -9,6 +9,7 @@ import random
 import math
 import matplotlib.pyplot as plt # for debugging previews only
 from libExtractTile import getNotEmptyTiles
+from tfQuadraticWeightedKappa import QuadraticWeightedKappa
 from modelA import constructModel
 from skimage import io
 
@@ -52,8 +53,8 @@ print("{0} training samples, {1} val sample, {2} samples in total".format(trSamp
 tileSize = 1024
 nnTileSize = 224
 batchSize = 2
-shuffleBufferSize = 128
-prefetchSize = 16
+shuffleBufferSize = 4
+prefetchSize = 4
 trainSequenceLength = 64
 seed = 35372932
 random.seed(seed)
@@ -248,11 +249,7 @@ model.compile(
           optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
-          # metrics=[
-          #     #auroc,
-          #     dsc
-          #     #tf.keras.metrics.MeanIoU(num_classes=2)
-          #     ]
+          metrics=[QuadraticWeightedKappa()]
           )
 print("model compiled")
 print(model.summary())
