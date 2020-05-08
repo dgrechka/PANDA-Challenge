@@ -15,9 +15,9 @@ class TestExtractTile(unittest.TestCase):
     def setUp(self):
         datasetPath = "data\\kaggleOfficial"
         citoImagesPath = os.path.join(datasetPath,"train_images")        
-        self.toOpen = os.path.join(citoImagesPath,"00a7fb880dc12c5de82df39b30533da9.tiff")
+        #self.toOpen = os.path.join(citoImagesPath,"00a7fb880dc12c5de82df39b30533da9.tiff")
         #self.toOpen = r"M:\Panda\officialData\train_images\00a76bfbec239fd9f465d6581806ff42.tiff"
-        #self.toOpen = r"//10.0.4.13/Machine_Learning/Panda/officialData/train_images/00a76bfbec239fd9f465d6581806ff42.tiff"
+        self.toOpen = r"//10.0.4.13/Machine_Learning/Panda/officialData/train_images/3790f55cad63053e956fb73027179707.tiff"
         #self.toOpen = r"C:\ML\PANDA-Challenge\data\kaggleOfficial\train_images\00a76bfbec239fd9f465d6581806ff42.tiff"
         
         print("file exists {0}".format(os.path.exists(self.toOpen)))
@@ -63,6 +63,12 @@ if __name__ == "__main__":
     
     tileSize = 1024
 
+    plt.figure()
+    plt.imshow(testCase.im)
+    plt.show()  # display it
+
+    input("Press Enter to continue...")
+
     tileIdx,tiles = getNotEmptyTiles(testCase.im,tileSize)
     h,w,_ = testCase.im.shape
     possibleTiles = math.ceil(h/tileSize) * math.ceil(w/tileSize)  
@@ -71,9 +77,7 @@ if __name__ == "__main__":
     cols = round(math.sqrt(N))
     rows = math.ceil(N/cols)
 
-    plt.figure()
-    plt.imshow(testCase.im)
-
+    
 
     plt.figure()
     r,c = tileIdx[N-1]

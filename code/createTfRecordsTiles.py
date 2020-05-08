@@ -37,7 +37,7 @@ def ProcessTask(task):
     else:
         return 0
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
 
     imagesPath = sys.argv[1]
     outPath = sys.argv[2]

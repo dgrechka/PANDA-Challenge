@@ -10,6 +10,7 @@ import math
 import matplotlib.pyplot as plt # for debugging previews only
 from libExtractTile import getNotEmptyTiles
 from tfQuadraticWeightedKappa import QuadraticWeightedKappa
+import tfDataProcessing
 from modelA import constructModel
 from skimage import io
 
@@ -22,6 +23,24 @@ labelsPath = sys.argv[2]
 valRowsPath = sys.argv[3]
 outputPath =sys.argv[4]
 
+tileSize = 1024
+nnTileSize = 224
+batchSize = 2
+shuffleBufferSize = 128
+prefetchSize = 16
+trainSequenceLength = 64
+seed = 35372932
+random.seed(seed)
+tf.random.set_seed(seed+151)
+
+def RemoveInvalidLabels(dataFrame):
+    print("{0} images before removing whole white".format(len(dataFrame)))
+    # whole white image
+    #corruptedIdx = dataFrame[dataFrame['image_id'] == "3790f55cad63053e956fb73027179707"].index
+    filteredDf = dataFrame[dataFrame['image_id'] != "3790f55cad63053e956fb73027179707"]
+    print("{0} images after removing whole white".format(len(filteredDf)))
+    return filteredDf
+
 
 labelsDf = pd.read_csv(labelsPath, engine='python')
 
@@ -32,14 +51,19 @@ valIdx = valIdxDf.iloc[:,0]
 vaLabelsDf  = labelsDf.iloc[list(valIdx),:]
 trLabelsDf = labelsDf[~labelsDf.index.isin(vaLabelsDf.index)]
 
+vaLabelsDf = RemoveInvalidLabels(vaLabelsDf)
+trLabelsDf = RemoveInvalidLabels(trLabelsDf)
+
 # debug run of srinked DS
 #trLabelsDf = trLabelsDf.iloc[0:500,]
 #vaLabelsDf = vaLabelsDf.iloc[0:100,]
 
 
 trIdents = list(trLabelsDf.iloc[:,0])
+trTfRecordFileNames = [os.path.join(cytoImagePath,"{0}.tfrecords".format(x)) for x in trIdents]
 trLabels = list(trLabelsDf.iloc[:,2])
 vaIdents = list(vaLabelsDf.iloc[:,0])
+vaTfRecordFileNames = [os.path.join(cytoImagePath,"{0}.tfrecords".format(x)) for x in vaIdents]
 vaLabels = list(vaLabelsDf.iloc[:,2])
 
 #print("tf idents")
@@ -50,72 +74,6 @@ vaSamplesCount = len(vaLabelsDf)
 
 print("{0} training samples, {1} val sample, {2} samples in total".format(trSamplesCount, vaSamplesCount, len(labelsDf)))
 
-tileSize = 1024
-nnTileSize = 224
-batchSize = 2
-shuffleBufferSize = 4
-prefetchSize = 4
-trainSequenceLength = 64
-seed = 35372932
-random.seed(seed)
-tf.random.set_seed(seed+151)
-
-tileIndexCache = dict()
-tileIndexCacheLock = threading.Semaphore(1)
-
-
-
-def getDataSet(idents,labels):
-    def samplesGenerator():
-        N = len(idents)
-        for i in range(0,N): 
-            ident = idents[i]
-            label = labels[i]
-            toOpen = os.path.join(cytoImagePath,"{0}.tiff".format(ident))
-            
-            yield (toOpen, ident, label) 
-
-    return tf.data.Dataset.from_generator( 
-        samplesGenerator, 
-        (tf.string, tf.string, tf.uint8), 
-        (tf.TensorShape([]), tf.TensorShape([]), tf.TensorShape([]))) 
-
-
-
-def loadImage(imagePath,ident,label):
-    def loadAsTilePack(path,ident):
-        path = path.numpy().decode("utf-8")
-        ident = ident.numpy().decode("utf-8")
-        #print("openning {0}".format(path))
-        image = io.imread(path)
-
-        tileIndexCacheLock.acquire()
-        if ident in tileIndexCache:
-            precomputedTileIndeces = tileIndexCache[ident]
-        else:
-            precomputedTileIndeces = None
-        tileIndexCacheLock.release()
-
-        indices,tiles = getNotEmptyTiles(image,tileSize, precomputedTileIndeces)
-
-        tileIndexCacheLock.acquire()
-        tileIndexCache[ident] = indices
-        tileIndexCacheLock.release()
-
-        T = len(indices)
-        if T == 0: # guard againt empty tile set (all of the tiles are white!)
-            print("sample {0} does not contain suitable tiles! requires investigation!".format(ident))
-            return np.empty((1,1024,1024,3)), 1, False
-        else:
-            npTiles = np.stack(tiles,axis=0)
-            #print(npTiles)
-            return npTiles, T, True
-    
-    imagePack,tileCount,valid = tf.py_function(func=loadAsTilePack, inp=[imagePath,ident], Tout=(tf.uint8, tf.int32, tf.bool)) 
-    imagePack = tf.reshape(imagePack,[tileCount,tileSize,tileSize,3])
-    resLabel = tf.cond(valid, lambda: label, lambda: tf.constant(255,dtype=tf.uint8))
-    return imagePack, resLabel
-    
 
 def coerceSeqSize(imagePack, label):
   imagePackShape = tf.shape(imagePack)
@@ -147,12 +105,12 @@ def downscale(imagePack,label):
 # TODO: shuffle slices
 # TODO: augment slices
 
-def isValidPack(imagePack, label):
-    return label <= 5
 
-trDs = getDataSet(trIdents,trLabels) \
-    .map(loadImage, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    .filter(isValidPack) \
+trImagesDs = tfDataProcessing.getTfRecordDataset(trTfRecordFileNames) \
+    .map(tfDataProcessing.extractTilePackFromTfRecord)
+trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
+    
+trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
     .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .repeat() \
@@ -160,9 +118,11 @@ trDs = getDataSet(trIdents,trLabels) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
-valDs = getDataSet(vaIdents,vaLabels) \
-    .map(loadImage, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    .filter(isValidPack) \
+valImagesDs = tfDataProcessing.getTfRecordDataset(vaTfRecordFileNames) \
+    .map(tfDataProcessing.extractTilePackFromTfRecord)
+valLabelsDs = tf.data.Dataset.from_tensor_slices(vaLabels)
+    
+valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
     .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .batch(batchSize, drop_remainder=False) \
@@ -231,7 +191,7 @@ callbacks = [
             mode='min',
             save_weights_only=True,
             #monitor='val_root_recall'
-            mintor='val_loss'
+            mintor='loss' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
