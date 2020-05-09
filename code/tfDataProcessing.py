@@ -1,5 +1,10 @@
 import tensorflow as tf
 import numpy as np
+from skimage import io
+import os
+import threading
+from libExtractTile import getNotEmptyTiles
+
 
 feature_description = {
       'image': tf.io.FixedLenFeature([], tf.string),    
@@ -37,9 +42,11 @@ def getTiffTrainDataSet(cytoImagePath, idents, labels):
         (tf.string, tf.string, tf.uint8), 
         (tf.TensorShape([]), tf.TensorShape([]), tf.TensorShape([]))) 
 
+tileIndexCache = dict()
+tileIndexCacheLock = threading.Semaphore(1)
 
 
-def loadTiffImage(imagePath,ident,label):
+def loadTiffImage(imagePath,ident,label,tileSize=1024):
     def loadAsTilePack(path,ident):
         path = path.numpy().decode("utf-8")
         ident = ident.numpy().decode("utf-8")
