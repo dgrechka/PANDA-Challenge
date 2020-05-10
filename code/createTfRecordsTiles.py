@@ -5,6 +5,7 @@ from skimage import io
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+import json
 from libExtractTile import getNotEmptyTiles
 
 def savePackAsTFRecord(imageList,outputFilename):
@@ -24,41 +25,44 @@ def savePackAsTFRecord(imageList,outputFilename):
     with tf.io.TFRecordWriter(outputFilename,"GZIP") as writer:
         writer.write(example_proto.SerializeToString())
     print("Done with {0}\t-\t{1}\ttiles".format(outputFilename,N))
-    return N
 
 def ProcessTask(task):
+    ident = task['ident']
     tiffPath = task['tiffPath']
     tfrecordsPath = task['tfrecordsPath']
     tileSize = task['tileSize']
     im = io.imread(tiffPath,plugin="tifffile")
-    _,tiles = getNotEmptyTiles(im,tileSize)
+    tilesIdx,tiles = getNotEmptyTiles(im,tileSize)
     if len(tiles) > 0:
-        return savePackAsTFRecord(tiles,tfrecordsPath)    
-    else:
-        return 0
+        savePackAsTFRecord(tiles,tfrecordsPath)
+    return tilesIdx,ident
 
 if __name__ == '__main__':
 
     imagesPath = sys.argv[1]
     outPath = sys.argv[2]
-    tileSize = int(sys.argv[3])
+    outHistFile = sys.argv[3]
+    outIdxFile = sys.argv[4]
+    tileSize = int(sys.argv[5])
 
     print("tiff images path: {0}".format(imagesPath))
     print("out dir: {0}".format(outPath))
     print("tile size: {0}".format(tileSize))
 
     M = multiprocessing.cpu_count()
-    p = multiprocessing.Pool(M)    
+    p = multiprocessing.Pool(M+1)    
     print("Detected {0} CPU cores".format(M))
 
     files = os.listdir(imagesPath)
     tiffFiles = [x for x in files if x.endswith(".tiff")]
 
-    #tiffFiles = tiffFiles[0:10]
+    # uncomment for short (test) run
+    # tiffFiles = tiffFiles[0:10]
 
     tasks = list()
     for tiffFile in tiffFiles:
         task = {
+            'ident' : tiffFile[:-5],
             'tiffPath': os.path.join(imagesPath,tiffFile),
             'tfrecordsPath': os.path.join(outPath,"{0}.tfrecords".format(tiffFile[:-5])),
             'tileSize': tileSize
@@ -66,11 +70,14 @@ if __name__ == '__main__':
         tasks.append(task)
     print("Starting {0} conversion tasks".format(len(tasks)))
 
-    tileCounts = p.map(ProcessTask,tasks)
+    tilesIdx = p.map(ProcessTask,tasks)
     print("Analyzing tile count frequencies")
 
     freqDict = dict()
-    for tileCount in tileCounts:
+    tileIdxDict = dict()
+    for tileIdx,ident in tilesIdx:
+        tileIdxDict[ident] = tileIdx
+        tileCount = len(tileIdx)
         if tileCount in freqDict:
             prevCount = freqDict[tileCount]
         else:
@@ -79,6 +86,12 @@ if __name__ == '__main__':
 
     freqDf = pd.DataFrame.from_dict(freqDict, orient='index', columns=["Counts"])    
     freqDf.sort_index(inplace=True)
+    freqDf.to_csv(outHistFile)
     print(freqDf)
+    print("Tile count histogram written")
+
+    with open(outIdxFile, 'w', encoding='utf-8') as f:
+        json.dump(tileIdxDict, f, ensure_ascii=False)
+    print("Tile index written")
 
     print("Done")

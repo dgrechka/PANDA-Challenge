@@ -9,6 +9,7 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 255, precomputedTileIndi
     horTiles = math.ceil(w / tileSize)
     indexResult = []
     dataResult = []
+    tileIntensity  = []
 
     def extractTileData(row_idx,col_idx):
         tileYstart = row_idx*tileSize
@@ -50,6 +51,16 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 255, precomputedTileIndi
 
                 indexResult.append((row_idx,col_idx))
                 dataResult.append(tile)
+                tileIntensity.append(tileQuantile)
+        
+        # sorting the tiles according to intensity
+        resIdx = []
+        resData = []
+        for (idxElem,dataElem,_) in sorted(zip(indexResult, dataResult, tileIntensity), key=lambda pair: pair[2]):
+            resIdx.append(idxElem)
+            resData.append(dataElem)
+        indexResult = resIdx
+        dataResult = resData
     else:
         # do not analyse all possible tiles for return
         # just return requested tiles (possibly padded)
