@@ -27,9 +27,10 @@ tileSize = 1024
 nnTileSize = 224
 batchSize = 2
 shuffleBufferSize = 128
-prefetchSize = 16
+prefetchSize = 8
 trainSequenceLength = 64
 seed = 35372932
+epochsToTrain = 3
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
@@ -191,7 +192,7 @@ callbacks = [
             mode='min',
             save_weights_only=True,
             #monitor='val_root_recall'
-            mintor='loss' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
+            monitor='loss' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
@@ -215,14 +216,14 @@ print("model compiled")
 print(model.summary())
 
 model.fit(x = trDs, \
-      validation_data = valDs,
-      validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
+      #validation_data = valDs,
+      #validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
       #initial_epoch=initial_epoch,
       verbose = 1,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
       steps_per_epoch= int(math.ceil(trSamplesCount / batchSize)),
-      epochs=5)
+      epochs=epochsToTrain)
 
 print("Done")
 

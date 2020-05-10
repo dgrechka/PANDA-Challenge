@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 class QuadraticWeightedKappa(tf.keras.metrics.Metric):
-    def __init__(self, maxClassesCount=6, name='QWKappa', **kwargs):        
+    def __init__(self, maxClassesCount=6, name='kappa', **kwargs):        
         super(QuadraticWeightedKappa, self).__init__(name=name, **kwargs)
         self.M = maxClassesCount
 
