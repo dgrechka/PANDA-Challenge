@@ -83,6 +83,46 @@ def loadTiffImage(imagePath,ident,label,tileSize=1024):
 def isValidPack(imagePack, label):
     return label <= 5
 
+def coerceSeqSize(imagePack, trainSequenceLength):
+  imagePackShape = tf.shape(imagePack)
+  T = imagePackShape[0]
+
+  # if T is less than trainSequenceLength we need to duplicate the layers
+  seqRepCount = tf.cast(tf.math.ceil(trainSequenceLength / T), tf.int32)
+  notTooShort = \
+    tf.cond(seqRepCount > 1, \
+        lambda : tf.tile(tf.random.shuffle(imagePack), [seqRepCount, 1, 1, 1]), \
+        lambda : imagePack)
+  
+  # if T is greater than trainSequenceLength we need to truncate it
+  notTooLong = notTooShort[0:trainSequenceLength,:,:,:]
+  shapeSet = tf.reshape(notTooLong,
+    [
+        trainSequenceLength,
+        imagePackShape[1],
+        imagePackShape[2],
+        imagePackShape[3]
+    ])
+  return shapeSet
+
+def downscale(imagePack, nnTileSize):
+    resized = tf.image.resize(
+        imagePack,
+        [nnTileSize,nnTileSize], antialias=True,
+        method=tf.image.ResizeMethod.AREA
+        )
+    return resized
+
+def augment(imagePack):
+    def augmentSingle(image):
+        augSwitches = tf.cast(tf.math.round(tf.random.uniform([3],minval=0.0, maxval=1.0)),dtype=tf.bool)
+        image = tf.cond(augSwitches[0], lambda: tf.image.rot90(image), lambda: image)
+        image = tf.cond(augSwitches[1], lambda: tf.image.flip_left_right(image), lambda: image)
+        image = tf.cond(augSwitches[2], lambda: tf.image.flip_up_down(image), lambda:image)
+        return image
+    return tf.map_fn(augmentSingle, imagePack, back_prop=False)
+    
+
 # usage example
 # trDs = getTiffTrainDataSet(trIdents,trLabels) \
 #    .map(loadTiffImage , num_parallel_calls=tf.data.experimental.AUTOTUNE) \

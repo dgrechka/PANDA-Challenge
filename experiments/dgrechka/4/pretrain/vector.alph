@@ -1,0 +1,54 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "..\\..\\..\\..\\code\\pretrainA_tfrecords.py",
+            "Hash": null
+          },
+          {
+            "RelativePath": "..\\..\\..\\..\\data\\kaggleOfficial\\train.csv",
+            "Hash": null
+          },
+          {
+            "RelativePath": "..\\val_folds\\*.csv",
+            "Hash": null
+          },
+          {
+            "RelativePath": "..\\..\\..\\..\\code\\tfDataProcessing.py",
+            "Hash": null
+          },
+          {
+            "RelativePath": "..\\..\\..\\..\\code\\tfQuadraticWeightedKappa.py",
+            "Hash": null
+          },
+          {
+            "RelativePath": "..\\..\\..\\..\\code\\modelA.py",
+            "Hash": null
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "*\\",
+            "Hash": null
+          }
+        ],
+        "ResourceGroups": [
+          "gpu"
+        ],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "..\\..\\..\\..",
+        "Command": "python $in1 $in2 $in3 $out1 64",
+        "Signature": "3CC9F787356E9BADF403B551D39A8A5BEF6A0644",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

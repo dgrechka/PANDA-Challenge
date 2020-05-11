@@ -5,12 +5,13 @@ import pandas as pd
 import sys
 import itertools
 import threading
+import multiprocessing
 import random
 import math
 import matplotlib.pyplot as plt # for debugging previews only
 from libExtractTile import getNotEmptyTiles
 from tfQuadraticWeightedKappa import QuadraticWeightedKappa
-import tfDataProcessing
+import tfDataProcessing as tfdp
 from modelA import constructModel
 from skimage import io
 
@@ -18,17 +19,24 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'} 3 - error, 0 
 tf.get_logger().setLevel("ERROR")
 tf.autograph.set_verbosity(0)
 
-cytoImagePath = sys.argv[1]
-labelsPath = sys.argv[2]
-valRowsPath = sys.argv[3]
-outputPath =sys.argv[4]
+trainTfRecordsPathEnv = "trainTfRecordsPath"
+
+if not(trainTfRecordsPathEnv in os.environ):
+    print("Can't find environmental variable {0}".format(trainTfRecordsPathEnv))
+
+cytoImagePath = os.environ[trainTfRecordsPathEnv]
+labelsPath = sys.argv[1]
+valRowsPath = sys.argv[2]
+outputPath = sys.argv[3]
+trainSequenceLength = int(sys.argv[4])
+
+print("TFRecords path is {0}".format(cytoImagePath))
 
 tileSize = 1024
 nnTileSize = 224
 batchSize = 2
 shuffleBufferSize = 128
-prefetchSize = 8
-trainSequenceLength = 64
+prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
 epochsToTrain = 3
 random.seed(seed)
@@ -76,56 +84,37 @@ vaSamplesCount = len(vaLabelsDf)
 print("{0} training samples, {1} val sample, {2} samples in total".format(trSamplesCount, vaSamplesCount, len(labelsDf)))
 
 
-def coerceSeqSize(imagePack, label):
-  imagePackShape = tf.shape(imagePack)
-  T = imagePackShape[0]
-
-  # if T is less than trainSequenceLength we need to duplicate the layers
-  seqRepCount = tf.cast(tf.math.ceil(trainSequenceLength / T),tf.int32)
-  notTooShort = tf.tile(imagePack, [seqRepCount, 1, 1, 1])
-  # if T is greater than trainSequenceLength we need to truncate it
-  notTooLong = notTooShort[0:trainSequenceLength,:,:,:]
-  shapeSet = tf.reshape(notTooLong,
-    [
-        trainSequenceLength,
-        imagePackShape[1],
-        imagePackShape[2],
-        imagePackShape[3]
-    ])
-  return shapeSet, label
-
-def downscale(imagePack,label):
-    resized = tf.image.resize(
-        imagePack,
-        [nnTileSize,nnTileSize], antialias=True,
-        method=tf.image.ResizeMethod.AREA
-        )
-    return resized,label
-
-
-# TODO: shuffle slices
-# TODO: augment slices
-
-
-trImagesDs = tfDataProcessing.getTfRecordDataset(trTfRecordFileNames) \
-    .map(tfDataProcessing.extractTilePackFromTfRecord)
+trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
+    .map(tfdp.extractTilePackFromTfRecord)
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
-    
+
+def trImageTransform(imagePack):
+    return tf.random.shuffle(
+                tfdp.augment(
+                    tfdp.coerceSeqSize(
+                        tfdp.downscale(imagePack,nnTileSize), \
+                        trainSequenceLength)
+                    )
+                )
+
+def vaImageTransofrm(imagePack):
+    return tfdp.coerceSeqSize(
+                    tfdp.downscale(imagePack,nnTileSize), \
+                    trainSequenceLength)
+
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
-    .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(lambda im,lab: (trImageTransform(im),lab), num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .repeat() \
     .shuffle(shuffleBufferSize,seed=seed+31) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
-valImagesDs = tfDataProcessing.getTfRecordDataset(vaTfRecordFileNames) \
-    .map(tfDataProcessing.extractTilePackFromTfRecord)
+valImagesDs = tfdp.getTfRecordDataset(vaTfRecordFileNames) \
+    .map(tfdp.extractTilePackFromTfRecord)
 valLabelsDs = tf.data.Dataset.from_tensor_slices(vaLabels)
     
 valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
-    .map(downscale, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    .map(coerceSeqSize, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(lambda im,lab: (vaImageTransofrm(im),lab), num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
@@ -219,7 +208,7 @@ model.fit(x = trDs, \
       #validation_data = valDs,
       #validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
       #initial_epoch=initial_epoch,
-      verbose = 1,
+      verbose = 2,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
       steps_per_epoch= int(math.ceil(trSamplesCount / batchSize)),
