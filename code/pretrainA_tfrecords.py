@@ -34,7 +34,7 @@ print("TFRecords path is {0}".format(cytoImagePath))
 
 tileSize = 1024
 nnTileSize = 224
-batchSize = 2
+batchSize = 4
 shuffleBufferSize = 128
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932

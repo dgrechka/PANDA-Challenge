@@ -174,7 +174,7 @@ callbacks = [
             mode='min',
             save_weights_only=True,
             #monitor='val_root_recall'
-            mintor='loss'
+            monitor='loss'
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
@@ -198,8 +198,8 @@ print("model compiled")
 print(model.summary())
 
 model.fit(x = trDs, \
-      validation_data = valDs,
-      validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
+      #validation_data = valDs,
+      #validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
       #initial_epoch=initial_epoch,
       verbose = 1,
       callbacks=callbacks,

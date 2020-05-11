@@ -24,7 +24,7 @@ def constructModel(seriesLen, DORate=0.2):
         cnnPooled)  # Tx1024
     cnnPooledReshapedDO = tf.keras.layers.Dropout(rate=DORate, name='cnnsPooledReshapedDO')(
         cnnPooledReshaped)  # Tx1024
-    perSliceDenseOut = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(256), name='perSliceDenseOut')(
+    perSliceDenseOut = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(256, activation="selu"), name='perSliceDenseOut')(
         cnnPooledReshapedDO)  # Tx256.   1024*256 = 262144 parameters
     perSliceDenseOutDO = tf.keras.layers.Dropout(rate=DORate, name='perSliceDenseOutDO')(
         perSliceDenseOut)
