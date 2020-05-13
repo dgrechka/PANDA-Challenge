@@ -34,7 +34,7 @@ print("TFRecords path is {0}".format(cytoImagePath))
 
 nnTileSize = 224
 batchSize = 2
-shuffleBufferSize = 128
+shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
 epochsToTrain = 3
@@ -193,7 +193,7 @@ loss = tf.keras.losses.LogCosh(
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
-          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4),
+          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-5),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
           metrics=[QuadraticWeightedKappa()]

@@ -22,8 +22,8 @@ def constructModel(seriesLen, DORate=0.2):
         cnnOut)  # Tx1x1x1024
     cnnPooledReshaped = tf.keras.layers.TimeDistributed(tf.keras.layers.Reshape((1024,)), name='cnnsPooledReshaped')(
         cnnPooled)  # Tx1024
-    cnnTempPooled = tf.keras.layers.GlobalMaxPool1D(name="TempMapPool")(cnnPooledReshaped) # 1024
-    cnnTempPooledDO = tf.keras.layers.Dropout(rate=DORate, name='TempMapPoolDO')(
+    cnnTempPooled = tf.keras.layers.AveragePooling1D((seriesLen,),name="TempPool")(cnnPooledReshaped) # 1024
+    cnnTempPooledDO = tf.keras.layers.Dropout(rate=DORate, name='TempPoolDO')(
         cnnTempPooled) 
     denseOut1 = tf.keras.layers.Dense(256, name='DenseOut1', activation="selu")(
         cnnTempPooledDO)  # 256
