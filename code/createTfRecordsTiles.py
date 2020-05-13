@@ -6,6 +6,7 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 import json
+import cv2
 from libExtractTile import getNotEmptyTiles
 
 def savePackAsTFRecord(imageList,outputFilename):
@@ -31,8 +32,14 @@ def ProcessTask(task):
     tiffPath = task['tiffPath']
     tfrecordsPath = task['tfrecordsPath']
     tileSize = task['tileSize']
+    outImageSize = task['outImageSize']
     im = io.imread(tiffPath,plugin="tifffile")
     tilesIdx,tiles = getNotEmptyTiles(im,tileSize)
+    if outImageSize != tileSize:
+        resizedTiles = []
+        for tile in tiles:
+            resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
+        tiles = resizedTiles
     if len(tiles) > 0:
         savePackAsTFRecord(tiles,tfrecordsPath)
     return tilesIdx,ident
@@ -44,6 +51,7 @@ if __name__ == '__main__':
     outHistFile = sys.argv[3]
     outIdxFile = sys.argv[4]
     tileSize = int(sys.argv[5])
+    outImageSize = int(sys.argv[6])
 
     print("tiff images path: {0}".format(imagesPath))
     print("out dir: {0}".format(outPath))
@@ -65,7 +73,8 @@ if __name__ == '__main__':
             'ident' : tiffFile[:-5],
             'tiffPath': os.path.join(imagesPath,tiffFile),
             'tfrecordsPath': os.path.join(outPath,"{0}.tfrecords".format(tiffFile[:-5])),
-            'tileSize': tileSize
+            'tileSize': tileSize,
+            'outImageSize': outImageSize
         }
         tasks.append(task)
     print("Starting {0} conversion tasks".format(len(tasks)))
