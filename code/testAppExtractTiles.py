@@ -5,8 +5,10 @@ import os
 import sys
 if __name__ == "__main__":
     from libExtractTile import getNotEmptyTiles
+    import npImageNormalizations as npImNorm
 else:
     from .libExtractTile import getNotEmptyTiles
+    #import .npImageNormalizations as npImNorm
 import unittest
 import math
 
@@ -17,7 +19,7 @@ class TestExtractTile(unittest.TestCase):
         citoImagesPath = os.path.join(datasetPath,"train_images")        
         #self.toOpen = os.path.join(citoImagesPath,"00a7fb880dc12c5de82df39b30533da9.tiff")
         #self.toOpen = r"M:\Panda\officialData\train_images\00a76bfbec239fd9f465d6581806ff42.tiff"
-        self.toOpen = r"//10.0.4.13/Machine_Learning/Panda/officialData/train_images/3790f55cad63053e956fb73027179707.tiff"
+        self.toOpen = r"//10.0.4.13/Machine_Learning/Panda/officialData/train_images/00a7fb880dc12c5de82df39b30533da9.tiff"
         #self.toOpen = r"C:\ML\PANDA-Challenge\data\kaggleOfficial\train_images\00a76bfbec239fd9f465d6581806ff42.tiff"
         
         print("file exists {0}".format(os.path.exists(self.toOpen)))
@@ -65,11 +67,32 @@ if __name__ == "__main__":
 
     plt.figure()
     plt.imshow(testCase.im)
-    plt.show()  # display it
+    #plt.show()  # display it    
 
-    input("Press Enter to continue...")
+
+    #normalized = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(testCase.im, lambdaTerm=10.0))
+    #plt.figure()
+    #plt.imshow(normalized)
+
+
+
+    #input("Press Enter to continue...")
 
     tileIdx,tiles = getNotEmptyTiles(testCase.im,tileSize)
+    
+
+    # playing with contrasts
+    contrasts = []
+    means = []
+    for tile in tiles:        
+        contrasts.append(npImNorm.getImageContrast_withoutPureWhite(tile))
+        means.append(npImNorm.getImageMean_withoutPureWhite(tile))
+    meanContrast = np.mean(np.array(contrasts))    
+    meanMean = np.mean(means)
+    for i in range(0,len(tiles)):
+        tiles[i] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[i], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
+
+
     h,w,_ = testCase.im.shape
     possibleTiles = math.ceil(h/tileSize) * math.ceil(w/tileSize)  
     print("Got {0} non empty tiles out of {1} possible.".format(len(tileIdx),possibleTiles))

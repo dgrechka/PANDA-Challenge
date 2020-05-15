@@ -167,7 +167,7 @@ def previewSample(dsElem):
 model = constructModel(trainSequenceLength)
 print("model constructed")
 
-csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=True)
+csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
                                 patience=int(3), min_lr=1e-7, mode='max')
 
@@ -188,7 +188,7 @@ callbacks = [
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
-    #reduce_lr
+    reduce_lr
   ]
 
 loss = tf.keras.losses.LogCosh(
