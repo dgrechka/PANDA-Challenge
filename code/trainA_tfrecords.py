@@ -33,18 +33,16 @@ checkpointPath = sys.argv[3]
 trainSequenceLength = int(sys.argv[4])
 outputPath = sys.argv[5]
 
-tileSize = 1024
-nnTileSize = 224
 batchSize = 1
-shuffleBufferSize = 128
+shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
-epochsToTrain = 10
+epochsToTrain = 15
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
-gpu = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(gpu[0], True)
+#gpu = tf.config.experimental.list_physical_devices('GPU')
+#tf.config.experimental.set_memory_growth(gpu[0], True)
 
 def RemoveInvalidLabels(dataFrame):
     print("{0} images before removing whole white".format(len(dataFrame)))
@@ -88,22 +86,20 @@ vaSamplesCount = len(vaLabelsDf)
 print("{0} training samples, {1} val sample, {2} samples in total".format(trSamplesCount, vaSamplesCount, len(labelsDf)))
 
 
-trImagesDs = tfDataProcessing.getTfRecordDataset(trTfRecordFileNames) \
-    .map(tfDataProcessing.extractTilePackFromTfRecord)
+trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
+    .map(tfdp.extractTilePackFromTfRecord)
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
     
 def trImageTransform(imagePack):
     return tf.random.shuffle(
                 tfdp.augment(
-                    tfdp.coerceSeqSize(
-                        tfdp.downscale(imagePack,nnTileSize), \
+                    tfdp.coerceSeqSize(imagePack, \
                         trainSequenceLength)
                     )
                 )
 
 def vaImageTransofrm(imagePack):
-    return tfdp.coerceSeqSize(
-                    tfdp.downscale(imagePack,nnTileSize), \
+    return tfdp.coerceSeqSize(imagePack, \
                     trainSequenceLength)
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
@@ -168,7 +164,7 @@ def previewSample(dsElem):
 model = constructModel(trainSequenceLength)
 print("model constructed")
 
-csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=True)
+csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
                                 patience=int(3), min_lr=1e-7, mode='max')
 
@@ -189,7 +185,7 @@ callbacks = [
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
-    #reduce_lr
+    reduce_lr
   ]
 
 loss = tf.keras.losses.LogCosh(

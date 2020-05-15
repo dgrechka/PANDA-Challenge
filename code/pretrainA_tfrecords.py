@@ -32,8 +32,6 @@ trainSequenceLength = int(sys.argv[4])
 
 print("TFRecords path is {0}".format(cytoImagePath))
 
-tileSize = 1024
-nnTileSize = 224
 batchSize = 4
 shuffleBufferSize = 128
 prefetchSize = multiprocessing.cpu_count() + 1
@@ -91,15 +89,13 @@ trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
 def trImageTransform(imagePack):
     return tf.random.shuffle(
                 tfdp.augment(
-                    tfdp.coerceSeqSize(
-                        tfdp.downscale(imagePack,nnTileSize), \
+                    tfdp.coerceSeqSize(imagePack, \
                         trainSequenceLength)
                     )
                 )
 
 def vaImageTransofrm(imagePack):
-    return tfdp.coerceSeqSize(
-                    tfdp.downscale(imagePack,nnTileSize), \
+    return tfdp.coerceSeqSize(imagePack, \
                     trainSequenceLength)
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
