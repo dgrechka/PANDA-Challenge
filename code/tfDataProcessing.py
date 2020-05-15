@@ -95,7 +95,7 @@ def coerceSeqSize(imagePack, trainSequenceLength):
         lambda : imagePack)
   
   # if T is greater than trainSequenceLength we need to truncate it
-  notTooLong = notTooShort[0:trainSequenceLength,:,:,:]
+  notTooLong = tf.random.shuffle(notTooShort)[0:trainSequenceLength,:,:,:]
   shapeSet = tf.reshape(notTooLong,
     [
         trainSequenceLength,

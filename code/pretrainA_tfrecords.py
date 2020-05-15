@@ -33,10 +33,10 @@ trainSequenceLength = int(sys.argv[4])
 print("TFRecords path is {0}".format(cytoImagePath))
 
 batchSize = 4
-shuffleBufferSize = 128
+shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
-epochsToTrain = 3
+epochsToTrain = 4
 random.seed(seed)
 tf.random.set_seed(seed+151)
 

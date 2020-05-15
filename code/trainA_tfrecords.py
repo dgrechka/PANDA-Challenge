@@ -37,7 +37,7 @@ batchSize = 1
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
-epochsToTrain = 15
+epochsToTrain = 50
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
@@ -166,12 +166,12 @@ print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
-                                patience=int(3), min_lr=1e-7, mode='max')
+                                patience=int(5), min_lr=1e-7, mode='max')
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(5), monitor='val_kappa',mode='max'),
+    tf.keras.callbacks.EarlyStopping(patience=int(10), monitor='val_kappa',mode='max'),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
