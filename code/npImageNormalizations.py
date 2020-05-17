@@ -1,15 +1,18 @@
 import numpy as np
 import math
 
-def getImageMean_withoutPureWhite(image):
-    white = np.array([255,255,255])
-    cleared = np.where(image==white,np.NaN,image)
+def getImageMean_withoutPureBlack(image):
+    black = np.array([0,0,0])
+    cleared = np.where(image==black,np.NaN,image)
     return np.nanmean(cleared)
     
 
-def getImageContrast_withoutPureWhite(image, regTerm=0.0):
-    """(255,255,255) pixels are exluded from contrast evaluation"""
-    mu = getImageMean_withoutPureWhite(image)
+def getImageContrast_withoutPureBlack(image, regTerm=0.0, precomputedMu = None):
+    """(0,0,0) pixels are excluded from contrast evaluation"""
+    if precomputedMu is None:
+        mu = precomputedMu
+    else:
+        mu = getImageMean_withoutPureBlack(image)
     diff = image - mu
     return getImageContrast(image,regTerm=regTerm, precomputedDiff=diff)
 

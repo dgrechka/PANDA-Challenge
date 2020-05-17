@@ -1,9 +1,13 @@
 import math
 import numpy as np
 
-def getNotEmptyTiles(image, tileSize, emptySpaceValue = 255, precomputedTileIndices=None):
+def getNotEmptyTiles(image, tileSize, emptySpaceValue = 0, precomputedTileIndices=None):
     '''Returns the list of non-empty tile indeces (tile_row_idx,tile_col_idx) and corresponding list of tile npArrays).
     Each index list element specifies the zero based index (row_idx,col_idx) of square tile which contain some data (non-empty)'''
+
+    # negate image (as lots of further processing operations add zero paddings)
+    # we need black background
+
     h,w,_ = image.shape
     vertTiles = math.ceil(h / tileSize)
     horTiles = math.ceil(w / tileSize)
@@ -30,7 +34,7 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 255, precomputedTileIndi
         yPad = tileSize - th
         if (xPad>0) | (yPad>0):
             # we pad to the end
-            tile = np.pad(tile,[[0,yPad],[0,xPad],[0,0]],constant_values = 255)
+            tile = np.pad(tile,[[0,yPad],[0,xPad],[0,0]],constant_values = emptySpaceValue)
         return tile
 
     if precomputedTileIndices == None:
@@ -39,12 +43,12 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 255, precomputedTileIndi
             for col_idx in range(0,horTiles):
                 tile = extractTileData(row_idx, col_idx)
                 # if the tile contains pure white pixels (no information) we skip it (do not return)
-                tileMin = np.nanmin(tile)
+                tileMax = np.nanmax(tile)
                 tileQuantile = np.quantile(tile,1/4)
                 #print("row {0} col {1} min_v {2}".format(row_idx,col_idx,tileMin))
-                if tileMin > 230: # too white! there is no dark areas
+                if tileMax < 25: # too black! there is no tissue areas
                     continue
-                if tileQuantile > 240: # too many white pixels
+                if tileQuantile < 15: # too many black pixels portion
                     continue
 
                 tile = coerceTileSize(tile)
@@ -56,7 +60,7 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 255, precomputedTileIndi
         # sorting the tiles according to intensity
         resIdx = []
         resData = []
-        for (idxElem,dataElem,_) in sorted(zip(indexResult, dataResult, tileIntensity), key=lambda pair: pair[2]):
+        for (idxElem,dataElem,_) in sorted(zip(indexResult, dataResult, tileIntensity), key=lambda pair: -pair[2]):
             resIdx.append(idxElem)
             resData.append(dataElem)
         indexResult = resIdx
