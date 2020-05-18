@@ -6,6 +6,8 @@ import tensorflow as tf
 import numpy as np
 import pandas as pd
 import json
+import math
+#import matplotlib.pyplot as plt
 import cv2
 from libExtractTile import getNotEmptyTiles
 import npImageNormalizations as npImNorm
@@ -29,31 +31,37 @@ def savePackAsTFRecord(imageList,outputFilename):
         writer.write(example_proto.SerializeToString())
     print("Done with {0}\t-\t{1}\ttiles".format(outputFilename,N))
 
-def ProcessTask(task):
+def ProcessTask(task):    
     ident = task['ident']
     tiffPath = task['tiffPath']
     tfrecordsPath = task['tfrecordsPath']
     tileSize = task['tileSize']
-    outImageSize = task['outImageSize']
+    outImageSize = task['outImageSize']    
+
     #print("reading image from disk {0}".format(ident))
     im = 255 - io.imread(tiffPath,plugin="tifffile")
     
     # initial downscaling (to speed up)
-    initial_downscale_factor = 2
+    initial_downscale_factor = 4
     h,w,_ = im.shape
     #print("initial downscale")
     im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
     tileSize = tileSize // initial_downscale_factor
 
-    N = 10
-    rotStep = 360.0 / N
+    M = 11
+    rotStep = 360.0 / M
     gatheredTiles = []
-    for i in range(0,N):
+    #print("Starting task {0} ({1},{2})".format(ident,h,w))
+    for i in range(0,M):
         effectiveDegree = rotStep*i
         #print("rotating for {0}".format(effectiveDegree))
         rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
         #print("getting tiles")
-        _,tiles = getNotEmptyTiles(rotated,tileSize)
+        _,tiles = getNotEmptyTiles(rotated, tileSize)
+
+        if len(tiles) == 0:
+            print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
+            continue
 
         #print("normalizing")
 
@@ -62,8 +70,9 @@ def ProcessTask(task):
         means = []
         for tile in tiles:        
             mu = npImNorm.getImageMean_withoutPureBlack(tile)
+            contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
             means.append(mu)
-            contrasts.append(npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu))
+            contrasts.append(contrast)
         meanContrast = np.mean(contrasts)    
         meanMean = np.mean(means)
         for i in range(0,len(tiles)):
@@ -75,12 +84,40 @@ def ProcessTask(task):
             for tile in tiles:
                 resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
             tiles = resizedTiles
-        gatheredTiles.append(tiles)
+        gatheredTiles.append(tiles)        
+
     gatheredTiles = [item for sublist in gatheredTiles for item in sublist]
     if len(gatheredTiles) > 0:
         #print("encoding")
         savePackAsTFRecord(gatheredTiles,tfrecordsPath)
     #print("done")
+
+    # debug preview
+        # N = len(gatheredTiles)
+        # cols = round(math.sqrt(N))
+        # rows = math.ceil(N/cols)
+
+        # #plt.figure()
+        # #r,c = tileIdx[N-1]
+        # #plt.title("tile [{0},{1}]".format(r,c))    
+        # #plt.imshow(gatheredTiles[N-1])
+
+        # fig, ax = plt.subplots(rows,cols)    
+        # fig.set_facecolor((0.3,0.3,0.3))
+
+        # idx = 1
+        # for row in range(0,rows):
+        #     for col in range(0,cols):            
+        #         row = (idx - 1) // cols
+        #         col = (idx -1) % cols
+        #         #ax[row,col].set_title("tile [{0},{1}]".format(tile_r,tile_c))    
+                
+        #         ax[row,col].axis('off')
+        #         if idx-1 < N:
+        #             ax[row,col].imshow(gatheredTiles[idx-1]) 
+        #         idx = idx + 1
+        # plt.show()  # display it
+
     return len(gatheredTiles)
 
 if __name__ == '__main__':
@@ -120,6 +157,7 @@ if __name__ == '__main__':
     print("Starting {0} conversion tasks".format(len(tasks)))
 
     tilesCounts = p.map(ProcessTask,tasks)
+    #tilesCounts = [ProcessTask(x) for x in tasks] # single threaded debugging
     print("Analyzing tile count frequencies")
 
     freqDict = dict()
