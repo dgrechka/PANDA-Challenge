@@ -33,16 +33,16 @@ checkpointPath = sys.argv[3]
 trainSequenceLength = int(sys.argv[4])
 outputPath = sys.argv[5]
 
-batchSize = 1
+batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
-seed = 35372932
+seed = 3537293
 epochsToTrain = 50
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
-#gpu = tf.config.experimental.list_physical_devices('GPU')
-#tf.config.experimental.set_memory_growth(gpu[0], True)
+gpu = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(gpu[0], True)
 
 def RemoveInvalidLabels(dataFrame):
     print("{0} images before removing whole white".format(len(dataFrame)))
@@ -91,15 +91,15 @@ trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
     
 def trImageTransform(imagePack):
-    return tf.random.shuffle(
-                tfdp.augment(
-                    tfdp.coerceSeqSize(imagePack, \
-                        trainSequenceLength)
-                    )
+    negativeImagePack = 255 - imagePack
+    return tfdp.augment(
+                tfdp.coerceSeqSize(negativeImagePack, \
+                    trainSequenceLength)
                 )
 
 def vaImageTransofrm(imagePack):
-    return tfdp.coerceSeqSize(imagePack, \
+    negativeImagePack = 255 - imagePack
+    return tfdp.coerceSeqSize(negativeImagePack, \
                     trainSequenceLength)
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
@@ -115,7 +115,7 @@ valLabelsDs = tf.data.Dataset.from_tensor_slices(vaLabels)
     
 valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
     .map(lambda im,lab: (vaImageTransofrm(im),lab), num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    .batch(batchSize, drop_remainder=False) \
+    .batch(batchSize, drop_remainder=True) \
     .prefetch(prefetchSize)
 
 def previewSample(dsElem):
@@ -161,7 +161,7 @@ def previewSample(dsElem):
 #testData = list(tr_ds.take(3).as_numpy_iterator())
 #previewSample(testData[0])
 
-model = constructModel(trainSequenceLength)
+model = constructModel(trainSequenceLength, DORate=0.3)
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
@@ -200,10 +200,9 @@ if os.path.exists(checkpointPath):
 else:
   print("Starting learning from scratch")
 
+
 for i in range(len(model.layers)):
   model.layers[i].trainable = True
-
-
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
@@ -215,9 +214,11 @@ model.compile(
 print("model compiled")
 print(model.summary())
 
+
+
 model.fit(x = trDs, \
       validation_data = valDs,
-      validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
+      validation_steps = int(math.floor(vaSamplesCount / batchSize)),
       #initial_epoch=initial_epoch,
       verbose = 2,
       callbacks=callbacks,

@@ -87,15 +87,17 @@ trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
 
 def trImageTransform(imagePack):
+    negativeImagePack = 255 - imagePack
     return tf.random.shuffle(
                 tfdp.augment(
-                    tfdp.coerceSeqSize(imagePack, \
+                    tfdp.coerceSeqSize(negativeImagePack, \
                         trainSequenceLength)
                     )
                 )
 
 def vaImageTransofrm(imagePack):
-    return tfdp.coerceSeqSize(imagePack, \
+    negativeImagePack = 255 - imagePack
+    return tfdp.coerceSeqSize(negativeImagePack, \
                     trainSequenceLength)
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
@@ -157,7 +159,7 @@ def previewSample(dsElem):
 #testData = list(tr_ds.take(3).as_numpy_iterator())
 #previewSample(testData[0])
 
-model = constructModel(trainSequenceLength)
+model = constructModel(trainSequenceLength, DORate=0.3)
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=True)

@@ -24,17 +24,15 @@ def constructModel(seriesLen, DORate=0.2):
         cnnPooled)  # Tx1024
     cnnPooledReshapedDO = tf.keras.layers.Dropout(rate=DORate, name='cnnsPooledReshapedDO')(
         cnnPooledReshaped)  # Tx1024
-    perSliceDenseOut = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(256, activation="selu"), name='perSliceDenseOut')(
-        cnnPooledReshapedDO)  # Tx256.   1024*256 = 262144 parameters
+    perSliceDenseOut = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(128, activation="selu"), name='perSliceDenseOut')(
+        cnnPooledReshapedDO)  # 128.   1024*128  parameters
     perSliceDenseOutDO = tf.keras.layers.Dropout(rate=DORate, name='perSliceDenseOutDO')(
         perSliceDenseOut)
-    gru1 = tf.keras.layers.GRU(128, return_sequences=True)
-    gru1back = tf.keras.layers.GRU(128, return_sequences=True, go_backwards=True)
-    gru1out = tf.keras.layers.Bidirectional(gru1, backward_layer=gru1back, name='rnn1')(perSliceDenseOutDO)
-    gru1outDO = tf.keras.layers.Dropout(rate=DORate, name='rnn1DO')(gru1out)
-    gru2 = tf.keras.layers.GRU(64)
-    gru2back = tf.keras.layers.GRU(64, go_backwards=True)
-    gru2out = tf.keras.layers.Bidirectional(gru2, backward_layer=gru2back, name='rnn2')(gru1outDO)
+    #gru1 = tf.keras.layers.GRU(128, return_sequences=True)
+    #gru1back = tf.keras.layers.GRU(128, return_sequences=True, go_backwards=True)
+    #gru1out = tf.keras.layers.Bidirectional(gru1, backward_layer=gru1back, name='rnn1')(perSliceDenseOutDO)
+    #gru1outDO = tf.keras.layers.Dropout(rate=DORate, name='rnn1DO')(gru1out)
+    gru2out = tf.keras.layers.GRU(32, dropout=DORate, batch_input_shape=(1, seriesLen, 128))(perSliceDenseOutDO)
     gru2outDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(gru2out)
     predOut = tf.keras.layers.Dense(1,name="resSigmoid",activation="sigmoid")(gru2outDO)
     predOutScaled = tf.keras.layers.Lambda(lambda x: x*5.0, name="result")(predOut)
