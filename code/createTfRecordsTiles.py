@@ -29,7 +29,7 @@ def savePackAsTFRecord(imageList,outputFilename):
     example_proto = tf.train.Example(features=tf.train.Features(feature=featureDict))    
     with tf.io.TFRecordWriter(outputFilename,"GZIP") as writer:
         writer.write(example_proto.SerializeToString())
-    print("Done with {0}\t-\t{1}\ttiles".format(outputFilename,N))
+    #print("Done with {0}\t-\t{1}\ttiles".format(outputFilename,N))
 
 def ProcessTask(task):    
     ident = task['ident']
@@ -60,7 +60,9 @@ def ProcessTask(task):
         _,tiles = getNotEmptyTiles(rotated, tileSize)
 
         if len(tiles) == 0:
-            print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
+            #print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
+            sys.stdout.write("!")
+            sys.stdout.flush()
             continue
 
         #print("normalizing")
@@ -84,12 +86,18 @@ def ProcessTask(task):
             for tile in tiles:
                 resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
             tiles = resizedTiles
-        gatheredTiles.append(tiles)        
+        gatheredTiles.append(tiles)
+        sys.stdout.write(".")
+        sys.stdout.flush()
 
     gatheredTiles = [item for sublist in gatheredTiles for item in sublist]
-    if len(gatheredTiles) > 0:
-        #print("encoding")
-        savePackAsTFRecord(gatheredTiles,tfrecordsPath)
+    if len(gatheredTiles) == 0:
+        print("WARN: Image {0} resulted in 0 tiles. producing blank (black) single tile TfRecords file".format(ident))
+        gatheredTiles = [ np.zeros((outImageSize,outImageSize,3),dtype=np.uint8) ]
+
+    savePackAsTFRecord(gatheredTiles,tfrecordsPath)
+    sys.stdout.write("({0})".format(len(gatheredTiles)))
+    sys.stdout.flush()
     #print("done")
 
     # debug preview
@@ -135,8 +143,12 @@ if __name__ == '__main__':
 
     M = multiprocessing.cpu_count()
     #M = 1
-    p = multiprocessing.Pool(M + 1)    
+    
     print("Detected {0} CPU cores".format(M))
+    M = 4
+
+    p = multiprocessing.Pool(M)
+    print("Created process pool of {0} workers".format(M))
 
     files = os.listdir(imagesPath)
     tiffFiles = [x for x in files if x.endswith(".tiff")]

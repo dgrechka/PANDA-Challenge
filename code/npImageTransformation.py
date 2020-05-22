@@ -5,12 +5,18 @@ import math
 def TrimBlackPaddings(image):
     rowsAggregated = np.amax(image,axis=(0,2))
     rowIndices = np.where(rowsAggregated != 0)[0]
+    if len(rowIndices) == 0:
+        print("WARN: entire black image in TrimBlackPaddings")
+        return image # entire black image
     firstRow,lastRow = rowIndices[0], rowIndices[-1]
 
     colsAggregated = np.amax(image, axis=(1,2))
     colIndices = np.where(colsAggregated != 0)[0]
-    firstCol, lastCol = colIndices[0], colIndices[-1]
+    if len(colIndices) == 0:
+        print("WARN: entire black image in TrimBlackPaddings")
+        return image # entire black image
 
+    firstCol, lastCol = colIndices[0], colIndices[-1]
 
     return image[firstCol:(lastCol+1), firstRow:(lastRow+1), :]
 
@@ -29,6 +35,10 @@ def RotateWithoutCrop(image, angleDeg):
         padH = diagInt - h
         padW = diagInt - w
 
+        if diagInt > 32768:
+            print("WARN: image size is more than 32768 in RotateWithoutCrop. Will not rotate and return the image as is‬")
+            return image
+
         #print("padding")
         paddedImage = np.pad(image, (
             (padH // 2, padH // 2),
@@ -42,7 +52,7 @@ def RotateWithoutCrop(image, angleDeg):
         center = int(diag * 0.5)
         #print("affine transofrming")
         rot = cv2.getRotationMatrix2D((center,center), angleDeg, 1)
-        print("target rotation size is {0},{1}".format(paddedW, paddedH))
+        #print("angle {2:.2f}\t\ttarget rotation size is {0},{1}".format(paddedW, paddedH,angleDeg))
         rotated = cv2.warpAffine(paddedImage, rot, (paddedW,paddedH))
 
         return TrimBlackPaddings(rotated)
