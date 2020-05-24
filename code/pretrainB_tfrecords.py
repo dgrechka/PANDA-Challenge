@@ -42,11 +42,16 @@ random.seed(seed)
 tf.random.set_seed(seed+151)
 
 def RemoveInvalidLabels(dataFrame):
-    print("{0} images before removing whole white".format(len(dataFrame)))
+    print("{0} images before removing absent".format(len(dataFrame)))
     # whole white image
     #corruptedIdx = dataFrame[dataFrame['image_id'] == "3790f55cad63053e956fb73027179707"].index
-    filteredDf = dataFrame[dataFrame['image_id'] != "3790f55cad63053e956fb73027179707"]
-    print("{0} images after removing whole white".format(len(filteredDf)))
+    dfIdents = list(dataFrame['image_id'])
+    filteredDf = dataFrame
+    for ident in dfIdents:
+        if not os.path.exists(os.path.join(cytoImagePath,"{0}.tfrecords".format(ident))):
+            print("Tiles for {0} are missing. Skipping this image".format(ident))
+            filteredDf = filteredDf[filteredDf['image_id'] != ident]
+    print("{0} images after removing absent".format(len(filteredDf)))
     return filteredDf
 
 

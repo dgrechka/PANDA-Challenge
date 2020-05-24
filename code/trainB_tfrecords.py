@@ -38,7 +38,7 @@ batchSize = 1
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
-epochsToTrain = 10
+epochsToTrain = 80
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
@@ -46,13 +46,17 @@ gpu = tf.config.experimental.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(gpu[0], True)
 
 def RemoveInvalidLabels(dataFrame):
-    print("{0} images before removing whole white".format(len(dataFrame)))
+    print("{0} images before removing absent".format(len(dataFrame)))
     # whole white image
     #corruptedIdx = dataFrame[dataFrame['image_id'] == "3790f55cad63053e956fb73027179707"].index
-    filteredDf = dataFrame[dataFrame['image_id'] != "3790f55cad63053e956fb73027179707"]
-    print("{0} images after removing whole white".format(len(filteredDf)))
+    dfIdents = list(dataFrame['image_id'])
+    filteredDf = dataFrame
+    for ident in dfIdents:
+        if not os.path.exists(os.path.join(cytoImagePath,"{0}.tfrecords".format(ident))):
+            print("Tiles for {0} are missing. Skipping this image".format(ident))
+            filteredDf = filteredDf[filteredDf['image_id'] != ident]
+    print("{0} images after removing absent".format(len(filteredDf)))
     return filteredDf
-
 
 labelsDf = pd.read_csv(labelsPath, engine='python')
 
@@ -92,11 +96,9 @@ trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
     
 def trImageTransform(imagePack):
-    return tf.random.shuffle(
-                tfdp.augment(
-                    tfdp.coerceSeqSize(imagePack, \
-                        trainSequenceLength)
-                    )
+    return tfdp.augment(
+                tfdp.coerceSeqSize(imagePack, \
+                    trainSequenceLength)
                 )
 
 def vaImageTransofrm(imagePack):
@@ -169,12 +171,12 @@ print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
-                                patience=int(3), min_lr=1e-7, mode='max')
+                                patience=int(7), min_lr=1e-7, mode='max')
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(5), monitor='val_kappa',mode='max'),
+    tf.keras.callbacks.EarlyStopping(patience=int(14), monitor='val_kappa',mode='max'),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
