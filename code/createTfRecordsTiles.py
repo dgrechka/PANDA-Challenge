@@ -16,6 +16,9 @@ import npImageTransformation as npImTrans
 def savePackAsTFRecord(imageList,outputFilename):
     """Saves a list of HxWxC uin8 images into .tfrecords file and GZIPing them"""
     N = len(imageList)
+    for image in imageList:
+        if len(image.shape) != 3:
+            print("image shape {0}".format(image.shape))
     w,h,c = imageList[0].shape
     imagePack = np.stack(imageList,axis=0)
     
@@ -38,6 +41,8 @@ def ProcessTask(task):
     tileSize = task['tileSize']
     outImageSize = task['outImageSize']    
 
+    minRequiredTiles = 15
+
     #print("reading image from disk {0}".format(ident))
     im = 255 - io.imread(tiffPath,plugin="tifffile")
     
@@ -50,51 +55,65 @@ def ProcessTask(task):
 
     M = 11
     rotStep = 360.0 / M
+    quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]    
+    activeQuantileIdx = 0
     gatheredTiles = []
     #print("Starting task {0} ({1},{2})".format(ident,h,w))
-    for i in range(0,M):
-        effectiveDegree = rotStep*i
-        #print("rotating for {0}".format(effectiveDegree))
-        rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
-        #print("getting tiles")
-        _,tiles = getNotEmptyTiles(rotated, tileSize)
+    while len(gatheredTiles) < minRequiredTiles:
+        gatheredTiles = []
+        activeQuantile = quantiles[activeQuantileIdx]
+        for i in range(0,M):
+            effectiveDegree = rotStep*i
+            #print("rotating for {0}".format(effectiveDegree))
+            rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
+            #print("getting tiles")
+            _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=activeQuantile)
 
-        if len(tiles) == 0:
-            #print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
-            sys.stdout.write("!")
+            if len(tiles) == 0:
+                #print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
+                sys.stdout.write("0")
+                sys.stdout.flush()
+                continue
+
+            #print("normalizing")
+
+            # normalizing with contrasts
+            contrasts = []
+            means = []
+            for tile in tiles:        
+                mu = npImNorm.getImageMean_withoutPureBlack(tile)
+                contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
+                means.append(mu)
+                contrasts.append(contrast)
+            meanContrast = np.mean(contrasts)    
+            meanMean = np.mean(means)
+            for i in range(0,len(tiles)):
+                tiles[i] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[i], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
+            #print("resizing")
+
+            if outImageSize != tileSize:
+                resizedTiles = []
+                for tile in tiles:
+                    resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
+                tiles = resizedTiles
+            gatheredTiles.append(tiles)
+            sys.stdout.write(".")
             sys.stdout.flush()
-            continue
 
-        #print("normalizing")
-
-        # normalizing with contrasts
-        contrasts = []
-        means = []
-        for tile in tiles:        
-            mu = npImNorm.getImageMean_withoutPureBlack(tile)
-            contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
-            means.append(mu)
-            contrasts.append(contrast)
-        meanContrast = np.mean(contrasts)    
-        meanMean = np.mean(means)
-        for i in range(0,len(tiles)):
-            tiles[i] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[i], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
-        #print("resizing")
-
-        if outImageSize != tileSize:
-            resizedTiles = []
-            for tile in tiles:
-                resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
-            tiles = resizedTiles
-        gatheredTiles.append(tiles)
-        sys.stdout.write(".")
-        sys.stdout.flush()
-
-    gatheredTiles = [item for sublist in gatheredTiles for item in sublist]
-    if len(gatheredTiles) == 0:
-        print("WARN: Image {0} resulted in 0 tiles. producing blank (black) single tile TfRecords file".format(ident))
-        gatheredTiles = [ np.zeros((outImageSize,outImageSize,3),dtype=np.uint8) ]
-
+        gatheredTiles = [item for sublist in gatheredTiles for item in sublist]
+        if len(gatheredTiles) < minRequiredTiles:
+            if activeQuantileIdx == (len(quantiles) - 1):
+                if len(gatheredTiles) == 0:
+                    print("WARN: Image {0} resulted in 0 tiles. producing blank (black) single tile TfRecords file".format(ident))
+                    gatheredTiles = [ np.zeros((outImageSize,outImageSize,3),dtype=np.uint8) ]
+                break
+            else:
+                activeQuantileIdx += 1
+                sys.stdout.write("[q{0:.2f}]".format(quantiles[activeQuantileIdx]))
+                sys.stdout.flush()
+                
+        
+        
     savePackAsTFRecord(gatheredTiles,tfrecordsPath)
     sys.stdout.write("({0})".format(len(gatheredTiles)))
     sys.stdout.flush()
