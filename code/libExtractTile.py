@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-def getNotEmptyTiles(image, tileSize, emptySpaceValue = 0, precomputedTileIndices=None):
+def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCuttOffQuantile = 1/4):
     '''Returns the list of non-empty tile indeces (tile_row_idx,tile_col_idx) and corresponding list of tile npArrays).
     Each index list element specifies the zero based index (row_idx,col_idx) of square tile which contain some data (non-empty)'''
 
@@ -34,7 +34,7 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 0, precomputedTileIndice
         yPad = tileSize - th
         if (xPad>0) | (yPad>0):
             # we pad to the end
-            tile = np.pad(tile,[[0,yPad],[0,xPad],[0,0]],constant_values = emptySpaceValue)
+            tile = np.pad(tile,[[0,yPad],[0,xPad],[0,0]],constant_values = 0)
         return tile
 
     if precomputedTileIndices == None:
@@ -44,7 +44,7 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 0, precomputedTileIndice
                 tile = extractTileData(row_idx, col_idx)
                 # if the tile contains pure white pixels (no information) we skip it (do not return)
                 tileMax = np.nanmax(tile)
-                tileQuantile = np.quantile(tile,1/4)
+                tileQuantile = np.quantile(tile, emptyCuttOffQuantile)
                 #print("row {0} col {1} min_v {2}".format(row_idx,col_idx,tileMin))
                 if tileMax < 25: # too black! there is no tissue areas
                     continue
@@ -56,6 +56,7 @@ def getNotEmptyTiles(image, tileSize, emptySpaceValue = 0, precomputedTileIndice
                 indexResult.append((row_idx,col_idx))
                 dataResult.append(tile)
                 tileIntensity.append(tileQuantile)
+            
         
         # sorting the tiles according to intensity
         resIdx = []
