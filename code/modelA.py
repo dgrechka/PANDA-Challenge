@@ -32,7 +32,10 @@ def constructModel(seriesLen, DORate=0.2):
     #gru1back = tf.keras.layers.GRU(128, return_sequences=True, go_backwards=True)
     #gru1out = tf.keras.layers.Bidirectional(gru1, backward_layer=gru1back, name='rnn1')(perSliceDenseOutDO)
     #gru1outDO = tf.keras.layers.Dropout(rate=DORate, name='rnn1DO')(gru1out)
-    gru2out = tf.keras.layers.GRU(32, dropout=DORate, batch_input_shape=(1, seriesLen, 128))(perSliceDenseOutDO)
+
+    #, batch_input_shape=(1, seriesLen, 128)
+
+    gru2out = tf.keras.layers.GRU(32, dropout=DORate, batch_input_shape=(1, seriesLen, 128), implementation=1)(perSliceDenseOutDO)
     gru2outDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(gru2out)
     predOut = tf.keras.layers.Dense(1,name="resSigmoid",activation="sigmoid")(gru2outDO)
     predOutScaled = tf.keras.layers.Lambda(lambda x: x*5.0, name="result")(predOut)

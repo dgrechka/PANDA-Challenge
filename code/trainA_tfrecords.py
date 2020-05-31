@@ -15,9 +15,9 @@ import tfDataProcessing as tfdp
 from modelA import constructModel
 from skimage import io
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'} 3 - error, 0 - debug
-tf.get_logger().setLevel("ERROR")
-tf.autograph.set_verbosity(0)
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'} 3 - error, 0 - debug
+#tf.get_logger().setLevel("ERROR")
+#tf.autograph.set_verbosity(0)
 
 trainTfRecordsPathEnv = "trainTfRecordsPath"
 
@@ -33,23 +33,33 @@ checkpointPath = sys.argv[3]
 trainSequenceLength = int(sys.argv[4])
 outputPath = sys.argv[5]
 
-batchSize = 2
+batchSize = 1
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
-seed = 3537293
-epochsToTrain = 50
+seed = 365
+epochsToTrain = 80
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
-gpu = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(gpu[0], True)
+#gpu = tf.config.experimental.list_physical_devices('GPU')
+#tf.config.experimental.set_memory_growth(gpu[0], True)
 
 def RemoveInvalidLabels(dataFrame):
-    print("{0} images before removing whole white".format(len(dataFrame)))
+    print("{0} images before removing absent".format(len(dataFrame)))
     # whole white image
     #corruptedIdx = dataFrame[dataFrame['image_id'] == "3790f55cad63053e956fb73027179707"].index
-    filteredDf = dataFrame[dataFrame['image_id'] != "3790f55cad63053e956fb73027179707"]
-    print("{0} images after removing whole white".format(len(filteredDf)))
+    dfIdents = list(dataFrame['image_id'])
+    filteredDf = dataFrame
+    for ident in dfIdents:
+        doSkip = False
+        if ident == "b0a92a74cb53899311acc30b7405e101":
+            doSkip = True # wierd labeld image
+        if not os.path.exists(os.path.join(cytoImagePath,"{0}.tfrecords".format(ident))):
+            print("Tiles for {0} are missing. Skipping this image".format(ident))
+            doSkip = True
+        if doSkip:
+            filteredDf = filteredDf[filteredDf['image_id'] != ident]
+    print("{0} images after removing absent".format(len(filteredDf)))
     return filteredDf
 
 
@@ -91,19 +101,22 @@ trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
     
 def trImageTransform(imagePack):
-    negativeImagePack = 255 - imagePack
     return tfdp.augment(
-                tfdp.coerceSeqSize(negativeImagePack, \
-                    trainSequenceLength)
-                )
+                tfdp.coerceSeqSize(imagePack, \
+                    trainSequenceLength))
 
 def vaImageTransofrm(imagePack):
-    negativeImagePack = 255 - imagePack
-    return tfdp.coerceSeqSize(negativeImagePack, \
+    return tfdp.coerceSeqSize(imagePack, \
                     trainSequenceLength)
 
+def trImageTransformWithLabel(im, lab):
+    return trImageTransform(im),lab
+
+def vaImageTransofrmWithLabel(im, lab):
+    return (vaImageTransofrm(im),lab)
+
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
-    .map(lambda im,lab: (trImageTransform(im),lab), num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(trImageTransformWithLabel, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .repeat() \
     .shuffle(shuffleBufferSize,seed=seed+31) \
     .batch(batchSize, drop_remainder=False) \
@@ -114,7 +127,7 @@ valImagesDs = tfdp.getTfRecordDataset(vaTfRecordFileNames) \
 valLabelsDs = tf.data.Dataset.from_tensor_slices(vaLabels)
     
 valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
-    .map(lambda im,lab: (vaImageTransofrm(im),lab), num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(vaImageTransofrmWithLabel , num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .batch(batchSize, drop_remainder=True) \
     .prefetch(prefetchSize)
 
@@ -158,20 +171,22 @@ def previewSample(dsElem):
             idx = idx + 1
     plt.show()  # display it
 
-#testData = list(tr_ds.take(3).as_numpy_iterator())
+#testData = list(trDs.take(1).repeat(2).as_numpy_iterator())
 #previewSample(testData[0])
+#previewSample(testData[1])
+#exit(1)
 
 model = constructModel(trainSequenceLength, DORate=0.3)
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
-                                patience=int(5), min_lr=1e-7, mode='max')
+                                patience=int(8), min_lr=1e-7, mode='max')
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(10), monitor='val_kappa',mode='max'),
+    tf.keras.callbacks.EarlyStopping(patience=int(17), monitor='val_kappa',mode='max'),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
@@ -206,7 +221,7 @@ for i in range(len(model.layers)):
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
-          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4),
+          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
           metrics=[QuadraticWeightedKappa()]

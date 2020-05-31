@@ -58,14 +58,16 @@ p1 <- ggplot(resDf3) +
   geom_smooth(aes(x=epoch, y=loss, fill=Fold, color=Fold, linetype = Dataset)) +
   scale_linetype_manual(values = lineTypes, name = "DataSet") +
   scale_shape_manual(values= markerTypes, name = "DataSet") +
-  ggtitle("Learning curves")
+  ggtitle("Learning curves") +
+  ylim(0, 1)
 
 
 p2 <- ggplot(resDf3) +
   geom_point(aes(x=epoch, y=kappa, color=Fold, shape= Dataset)) +
   geom_smooth(aes(x=epoch, y=kappa, fill=Fold, color=Fold, linetype = Dataset)) +
   scale_linetype_manual(values = lineTypes, name = "DataSet") +
-  scale_shape_manual(values= markerTypes, name = "DataSet")
+  scale_shape_manual(values= markerTypes, name = "DataSet") +
+  ylim(0, 1)
   #ggtitle("Learning curves - Kappa")
 
 

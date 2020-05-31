@@ -85,24 +85,29 @@ def isValidPack(imagePack, label):
 
 def coerceSeqSize(imagePack, trainSequenceLength):
   imagePackShape = tf.shape(imagePack)
-  T = imagePackShape[0]
-
-  # if T is less than trainSequenceLength we need to duplicate the layers
-  seqRepCount = tf.cast(tf.math.ceil(trainSequenceLength / T), tf.int32)
-  notTooShort = \
-    tf.cond(seqRepCount > 1, \
-        lambda : tf.tile(tf.random.shuffle(imagePack), [seqRepCount, 1, 1, 1]), \
-        lambda : imagePack)
-  
-  # if T is greater than trainSequenceLength we need to truncate it
-  notTooLong = tf.random.shuffle(notTooShort)[0:trainSequenceLength,:,:,:]
-  shapeSet = tf.reshape(notTooLong,
-    [
+  outputShape = [
         trainSequenceLength,
         imagePackShape[1],
         imagePackShape[2],
         imagePackShape[3]
-    ])
+    ]
+  T = imagePackShape[0]
+
+  availableIndices = tf.range(T)
+  
+
+  # if T is less than trainSequenceLength we need to duplicate the layers
+  seqRepCount = tf.cast(tf.math.ceil(trainSequenceLength / T), tf.int32)
+  notTooShortIndicies = \
+    tf.cond(seqRepCount > 1, \
+        lambda : tf.tile(tf.random.shuffle(availableIndices), [seqRepCount]), \
+        lambda : availableIndices)
+  
+  # if T is greater than trainSequenceLength we need to truncate it
+  notTooLongIndices = tf.random.shuffle(notTooShortIndicies)[0:trainSequenceLength]
+  #notTooLong = tf.IndexedSlices(imagePack,notTooLongIndices, dense_shape = outputShape)
+  notTooLong = tf.gather(imagePack, notTooLongIndices)
+  shapeSet = tf.reshape(notTooLong,outputShape)
   return shapeSet
 
 def downscale(imagePack, nnTileSize):
@@ -120,7 +125,7 @@ def augment(imagePack):
         image = tf.cond(augSwitches[1], lambda: tf.image.flip_left_right(image), lambda: image)
         image = tf.cond(augSwitches[2], lambda: tf.image.flip_up_down(image), lambda:image)
         return image
-    return tf.map_fn(augmentSingle, imagePack, back_prop=False)
+    return tf.map_fn(augmentSingle, imagePack)
     
 
 # usage example

@@ -32,7 +32,7 @@ trainSequenceLength = int(sys.argv[4])
 
 print("TFRecords path is {0}".format(cytoImagePath))
 
-batchSize = 4
+batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
@@ -41,13 +41,21 @@ random.seed(seed)
 tf.random.set_seed(seed+151)
 
 def RemoveInvalidLabels(dataFrame):
-    print("{0} images before removing whole white".format(len(dataFrame)))
-    # whole white image
-    #corruptedIdx = dataFrame[dataFrame['image_id'] == "3790f55cad63053e956fb73027179707"].index
-    filteredDf = dataFrame[dataFrame['image_id'] != "3790f55cad63053e956fb73027179707"]
-    print("{0} images after removing whole white".format(len(filteredDf)))
+    print("{0} images before removing absent".format(len(dataFrame)))
+    
+    dfIdents = list(dataFrame['image_id'])
+    filteredDf = dataFrame
+    for ident in dfIdents:
+        doSkip = False
+        if ident == "b0a92a74cb53899311acc30b7405e101":
+            doSkip = True # wierd labeld image
+        if not os.path.exists(os.path.join(cytoImagePath,"{0}.tfrecords".format(ident))):
+            print("Tiles for {0} are missing. Skipping this image".format(ident))
+            doSkip = True
+        if doSkip:
+            filteredDf = filteredDf[filteredDf['image_id'] != ident]
+    print("{0} images after removing absent".format(len(filteredDf)))
     return filteredDf
-
 
 labelsDf = pd.read_csv(labelsPath, engine='python')
 
@@ -87,17 +95,12 @@ trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
 
 def trImageTransform(imagePack):
-    negativeImagePack = 255 - imagePack
-    return tf.random.shuffle(
-                tfdp.augment(
-                    tfdp.coerceSeqSize(negativeImagePack, \
-                        trainSequenceLength)
-                    )
-                )
+    return tfdp.augment(
+                tfdp.coerceSeqSize(imagePack, \
+                    trainSequenceLength))
 
 def vaImageTransofrm(imagePack):
-    negativeImagePack = 255 - imagePack
-    return tfdp.coerceSeqSize(negativeImagePack, \
+    return tfdp.coerceSeqSize(imagePack, \
                     trainSequenceLength)
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
@@ -194,7 +197,7 @@ loss = tf.keras.losses.LogCosh(
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
-          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4),
+          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
           metrics=[QuadraticWeightedKappa()]
