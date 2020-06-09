@@ -1,0 +1,38 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../code/calcImageHammingDistances.py",
+            "Hash": "8BFEB31D563BEE5C58F599D707A242BDE656FEDD2AB7EC7A9C46C82176164CEA17976A9918E595DFED08D40DB8254A6F88F08AD59C699E4B01CFA1A871EAD7C3"
+          },
+          {
+            "RelativePath": "train_images_hashes.csv",
+            "Hash": "211800CABD7CD57F879967814D0151FBB0B6DF211217D56B50F3D5BB92E19E9ECF157FF6BDD2FA88A9FE85FA679925C8C6B1D447954997A3BF3921A1A464B8E9"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "train_images_hamming_distances.csv",
+            "Hash": "E7C0A18822567A89AAF725FE5B948F68DE74CC937AEB73D65AD678C5B09D3FCAF9DA410789F193EDA1D9305BC379AC03852BE66BF08291DBB0875D0E2E66CFC3"
+          }
+        ],
+        "ResourceGroups": [
+          "cpu"
+        ],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "..",
+        "Command": "python $in1 $in2 $out1",
+        "Signature": "A32CD21F919A967AFE946B3EE8B6F2A0911C1A75",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}
