@@ -33,7 +33,7 @@ checkpointPath = sys.argv[3]
 trainSequenceLength = int(sys.argv[4])
 outputPath = sys.argv[5]
 
-batchSize = 1
+batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 365

@@ -35,7 +35,7 @@ def constructModel(seriesLen, DORate=0.2):
 
     #, batch_input_shape=(1, seriesLen, 128)
 
-    gru2out = tf.keras.layers.GRU(32, dropout=DORate, batch_input_shape=(1, seriesLen, 128), implementation=1)(perSliceDenseOutDO)
+    gru2out = tf.keras.layers.GRU(32, dropout=DORate, implementation=1)(perSliceDenseOutDO)
     gru2outDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(gru2out)
     predOut = tf.keras.layers.Dense(1,name="resSigmoid",activation="sigmoid")(gru2outDO)
     predOutScaled = tf.keras.layers.Lambda(lambda x: x*5.0, name="result")(predOut)

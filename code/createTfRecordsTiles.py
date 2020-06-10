@@ -53,7 +53,7 @@ def ProcessTask(task):
     im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
     tileSize = tileSize // initial_downscale_factor
 
-    M = 11
+    M = 1
     rotStep = 360.0 / M
     quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]    
     activeQuantileIdx = 0
@@ -65,7 +65,10 @@ def ProcessTask(task):
         for i in range(0,M):
             effectiveDegree = rotStep*i
             #print("rotating for {0}".format(effectiveDegree))
-            rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
+            if effectiveDegree != 0.0:
+                rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
+            else:
+                rotated = im
             #print("getting tiles")
             _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=activeQuantile)
 
