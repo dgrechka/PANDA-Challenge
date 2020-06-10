@@ -1,0 +1,40 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../code/clusterSimilarImages.py",
+            "Hash": "05FF7D66299548C027E502D73DC5EA891E638190952AD7412E1A0DBF38275C8AF9D3649CB658E2239081795BCE30B407F580999BE9D90E3D33D8A39DCFA04B40"
+          },
+          {
+            "RelativePath": "kaggleOfficial/train.csv",
+            "Hash": "9C4CCB14E63AE5DFB8125B1CED079405E2664E8EF20A7FA6363F6A50BBCCA4C28392474EBD8C654161F2EFF4CAF89E7A3A662BF80B4465DC8C24C6FAD803D806"
+          },
+          {
+            "RelativePath": "train_images_low_hamming_distances.csv",
+            "Hash": "1702636F3FA4D9C09376F67519985749801C5F6C348BB62620BF3201B777EB336FD5CC899A580302704D9E955C325611476115D2092B8EF49779BC2F6FF00512"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "trainWithClusters.csv",
+            "Hash": "73431E8A9AE3724A9E8F3D559826C2D97C6D702E2909AC8C5203AB84CDF0701DE7EC1DDA711721B388C631A4CD7282C6B7540D84572F7890270D0759F9785D71"
+          }
+        ],
+        "ResourceGroups": [],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "..",
+        "Command": "python $in1 $in2 $in3 $out1",
+        "Signature": "60E667B9E3D8A481C238E4E40EDA3EA568626F06",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}
