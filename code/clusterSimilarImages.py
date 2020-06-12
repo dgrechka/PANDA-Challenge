@@ -47,7 +47,17 @@ print("clustering...")
 for pair in df2.itertuples():
     node1 = pair.ident1
     node2 = pair.ident2
-    MergeClusters(node1,node2)
+    hd = pair.hammingDist
+    ad = pair.aspectDist
+    merge = False
+    if ((hd <= 130) & (ad <= 1e-3)):
+        merge = True
+    if ((hd <= 100) & (ad <= 0.2)):
+        merge = True
+    if ((hd <= 90) & (ad <= 1.0)):
+        merge = True
+    if merge:
+        MergeClusters(node1,node2)
 
 print("Generating result dataframe with cluster ID")
 #image_id,data_provider,isup_grade,gleason_score

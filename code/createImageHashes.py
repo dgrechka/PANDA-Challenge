@@ -6,25 +6,28 @@ import imagehash
 import multiprocessing
 import pandas as pd
 import cv2
+from npImageTransformation import TrimBlackPaddings
 
 def ProcessTask(task):    
     ident = task['ident']
     tiffPath = task['tiffPath']
-
+    hashSize = 16 # default is 8
     initial_downscale_factor = 4
 
     imNumpy = io.imread(tiffPath,plugin="tifffile")
     h,w,_ = imNumpy.shape
     imNumpy = cv2.resize(imNumpy, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
+    imNumpy = TrimBlackPaddings(imNumpy)
+    h2,w2,_ = imNumpy.shape
     im = Image.fromarray(imNumpy,"RGB")
 
-    a_hash = imagehash.average_hash(im)
-    p_hash = imagehash.phash(im)
-    d_hash = imagehash.dhash(im)
-    w_hash = imagehash.whash(im)
+    a_hash = imagehash.average_hash(im, hash_size=hashSize)
+    p_hash = imagehash.phash(im, hash_size=hashSize )
+    d_hash = imagehash.dhash(im, hash_size=hashSize)
+    w_hash = imagehash.whash(im, hash_size=hashSize)
     #w2_hash = imagehash.whash(im, mode='db4')
-    print("{0}:\t{1}-{2}-{3}-{4}".format(ident,a_hash,p_hash,d_hash,w_hash))
-    return (ident,a_hash,p_hash,d_hash,w_hash)
+    print("{0}:\t{1}-{2}-{3}-{4}-{5}-{6}".format(ident,a_hash,p_hash,d_hash,w_hash,h2,w2))
+    return (ident,a_hash,p_hash,d_hash,w_hash,h2,w2)
 
 
 if __name__ == '__main__':
@@ -39,7 +42,7 @@ if __name__ == '__main__':
     tiffFiles = [x for x in files if x.endswith(".tiff")]
 
     # uncomment for short (test) run
-    #tiffFiles = tiffFiles[0:20]
+    # tiffFiles = tiffFiles[0:20]
 
     M = multiprocessing.cpu_count()
     
@@ -67,20 +70,26 @@ if __name__ == '__main__':
     p_hashes = list()
     d_hashes = list()
     w_hashes = list()
+    heights = list()
+    widths = list()
     #w2_hashes = list()
     for entry in hashes:
-        ident,a,p,d,w = entry
+        ident,a,p,d,w,height,width = entry
         idents.append(ident)
         a_hashes.append(str(a))
         p_hashes.append(str(p))
         d_hashes.append(str(d))
         w_hashes.append(str(w))
+        heights.append(int(height))
+        widths.append(int(width))
     #    w2_hashes.append(str(w2))
 
     print("Saving as CSV")
     df = pd.DataFrame.from_dict(
         {
             'ident':idents,
+            'Height': heights,
+            'Width': widths,
             'Average': a_hashes,
             'Perceptual': p_hashes,
             'Difference': d_hashes,

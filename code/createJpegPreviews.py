@@ -60,7 +60,7 @@ if __name__ == '__main__':
                 'jpegPath': jpegPath
             }
             tasks.append(task)
-    
+    print('{0} previews are already generated. {1} to generate'.format(len(existsList),len(tasks)))
     gathered = p.map(GeneratePreview,tasks)
     print("Done")
     
