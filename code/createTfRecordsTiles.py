@@ -12,6 +12,7 @@ import cv2
 from libExtractTile import getNotEmptyTiles
 import npImageNormalizations as npImNorm
 import npImageTransformation as npImTrans
+import tfDataProcessing as tfdp
 
 def savePackAsTFRecord(imageList,outputFilename):
     """Saves a list of HxWxC uin8 images into .tfrecords file and GZIPing them"""
@@ -34,28 +35,30 @@ def savePackAsTFRecord(imageList,outputFilename):
         writer.write(example_proto.SerializeToString())
     #print("Done with {0}\t-\t{1}\ttiles".format(outputFilename,N))
 
-def ProcessTask(task):    
+def ProcessGenerateRecordTask(task):
     ident = task['ident']
     tiffPath = task['tiffPath']
     tfrecordsPath = task['tfrecordsPath']
     tileSize = task['tileSize']
     outImageSize = task['outImageSize']    
-
-    minRequiredTiles = 15
-
+    minRequiredTiles = task['minRequiredTiles']
+    rotationStepsCount = task['rotationStepsCount']
+    #print("processing {0}".format(ident))
     #print("reading image from disk {0}".format(ident))
+    
     im = 255 - io.imread(tiffPath,plugin="tifffile")
     
     # initial downscaling (to speed up)
-    initial_downscale_factor = 4
+    initial_downscale_factor = task['initial_downscale_factor']
     h,w,_ = im.shape
     #print("initial downscale")
     im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
     tileSize = tileSize // initial_downscale_factor
 
-    M = 1
+    M = rotationStepsCount
     rotStep = 360.0 / M
-    quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]    
+    #quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]
+    quantiles = [3/4, 4/5, 5/6, 7/8, 9/10, 1.0]    
     activeQuantileIdx = 0
     gatheredTiles = []
     #print("Starting task {0} ({1},{2})".format(ident,h,w))
@@ -158,16 +161,25 @@ if __name__ == '__main__':
     #outIdxFile = sys.argv[4]
     tileSize = int(sys.argv[4])
     outImageSize = int(sys.argv[5])
+    minRequiredTilesCount = int(sys.argv[6])
+    rotationStepsCount = int(sys.argv[7])
+    initial_downscale_factor = int(sys.argv[8])
 
     print("tiff images path: {0}".format(imagesPath))
     print("out dir: {0}".format(outPath))
+    print("hist file: {0}".format(outHistFile))
     print("tile size: {0}".format(tileSize))
+    print("out image size: {0}".format(outImageSize))
+    print("min Required Tiles Count: {0}".format(minRequiredTilesCount))
+    print("rotation steps count: {0}".format(rotationStepsCount))
+    print("initial downscale factor: {0}".format(initial_downscale_factor))
 
     M = multiprocessing.cpu_count()
-    #M = 1
     
     print("Detected {0} CPU cores".format(M))
-    M = 4
+    #M = 1
+    #M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
+    M = 2
 
     p = multiprocessing.Pool(M)
     print("Created process pool of {0} workers".format(M))
@@ -176,23 +188,42 @@ if __name__ == '__main__':
     tiffFiles = [x for x in files if x.endswith(".tiff")]
 
     # uncomment for short (test) run
-    #tiffFiles = tiffFiles[0:20]
+    # tiffFiles = tiffFiles[0:20]
 
     tasks = list()
+    existsList = list()
+
     for tiffFile in tiffFiles:
-        task = {
-            'ident' : tiffFile[:-5],
-            'tiffPath': os.path.join(imagesPath,tiffFile),
-            'tfrecordsPath': os.path.join(outPath,"{0}.tfrecords".format(tiffFile[:-5])),
-            'tileSize': tileSize,
-            'outImageSize': outImageSize
-        }
-        tasks.append(task)
+        tfPath = os.path.join(outPath,"{0}.tfrecords".format(tiffFile[:-5]))
+        if(os.path.exists(tfPath)):
+            existsList.append(tfPath)
+        else:
+            task = {
+                'ident' : tiffFile[:-5],
+                'tiffPath': os.path.join(imagesPath,tiffFile),
+                'tfrecordsPath': tfPath,
+                'tileSize': tileSize,
+                'outImageSize': outImageSize,
+                'minRequiredTiles': minRequiredTilesCount,
+                'rotationStepsCount': rotationStepsCount,
+                'initial_downscale_factor': initial_downscale_factor
+            }
+            tasks.append(task)
+    
+    print("Existing tfRecords file count: {0}".format(len(existsList)))
+    def ExtractPackSize(imPack):
+        return tf.shape(imPack)[0]
+    existingTilesCounts = \
+        tfdp.getTfRecordDataset(existsList) \
+        .map(tfdp.extractTilePackFromTfRecord) \
+        .map(ExtractPackSize)
     print("Starting {0} conversion tasks".format(len(tasks)))
 
-    tilesCounts = p.map(ProcessTask,tasks)
-    #tilesCounts = [ProcessTask(x) for x in tasks] # single threaded debugging
+    tilesCounts = p.map(ProcessGenerateRecordTask,tasks)
+    #tilesCounts = [ProcessGenerateRecordTask(x) for x in tasks] # single threaded debugging
     print("Analyzing tile count frequencies")
+
+    tilesCounts = tilesCounts.extend(existingTilesCounts)
 
     freqDict = dict()
     for tilesCount in tilesCounts:                

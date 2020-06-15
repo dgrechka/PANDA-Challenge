@@ -15,9 +15,9 @@ import tfDataProcessing as tfdp
 from modelA import constructModel
 from skimage import io
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'} 3 - error, 0 - debug
-tf.get_logger().setLevel("ERROR")
-tf.autograph.set_verbosity(0)
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # or any {'0', '1', '2'} 3 - error, 0 - debug
+#tf.get_logger().setLevel("ERROR")
+#tf.autograph.set_verbosity(0)
 
 trainTfRecordsPathEnv = "trainTfRecordsPath"
 
@@ -36,7 +36,7 @@ batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
-epochsToTrain = 4
+epochsToTrain = 5
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
@@ -103,19 +103,25 @@ def vaImageTransofrm(imagePack):
     return tfdp.coerceSeqSize(imagePack, \
                     trainSequenceLength)
 
+def trImageTransformWithLabel(im, lab):
+    return trImageTransform(im),lab
+
+def vaImageTransofrmWithLabel(im, lab):
+    return (vaImageTransofrm(im),lab)
+
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
-    .map(lambda im,lab: (trImageTransform(im),lab), num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(trImageTransformWithLabel, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .repeat() \
     .shuffle(shuffleBufferSize,seed=seed+31) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
-
+    
 valImagesDs = tfdp.getTfRecordDataset(vaTfRecordFileNames) \
     .map(tfdp.extractTilePackFromTfRecord)
 valLabelsDs = tf.data.Dataset.from_tensor_slices(vaLabels)
     
 valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
-    .map(lambda im,lab: (vaImageTransofrm(im),lab), num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+    .map(vaImageTransofrmWithLabel , num_parallel_calls=tf.data.experimental.AUTOTUNE) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
@@ -162,7 +168,7 @@ def previewSample(dsElem):
 #testData = list(tr_ds.take(3).as_numpy_iterator())
 #previewSample(testData[0])
 
-model = constructModel(trainSequenceLength, DORate=0.3)
+model = constructModel(trainSequenceLength, DORate=0.4, l2regAlpha = 1e-3)
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=True)
@@ -200,7 +206,7 @@ model.compile(
           optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
-          metrics=[QuadraticWeightedKappa()]
+          metrics=[QuadraticWeightedKappa(), tf.keras.metrics.MeanAbsoluteError()]
           )
 print("model compiled")
 print(model.summary())

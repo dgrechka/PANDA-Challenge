@@ -3,7 +3,7 @@ import tensorflow as tf
 imageSize = 224
 
 
-def constructModel(seriesLen, DORate=0.2):
+def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
     netInput = tf.keras.Input(shape=(seriesLen, imageSize, imageSize, 3), name="input")
     denseNet = tf.keras.applications.DenseNet121(
         weights='imagenet',
@@ -24,7 +24,10 @@ def constructModel(seriesLen, DORate=0.2):
         cnnPooled)  # Tx1024
     cnnPooledReshapedDO = tf.keras.layers.Dropout(rate=DORate, name='cnnsPooledReshapedDO')(
         cnnPooledReshaped)  # Tx1024
-    perSliceDenseOut = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(128, activation="selu"), name='perSliceDenseOut')(
+    perSliceDenseOut = tf.keras.layers.TimeDistributed(
+        tf.keras.layers.Dense(128,
+        activation="selu",
+        kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)), name='perSliceDenseOut')(
         cnnPooledReshapedDO)  # 128.   1024*128  parameters
     perSliceDenseOutDO = tf.keras.layers.Dropout(rate=DORate, name='perSliceDenseOutDO')(
         perSliceDenseOut)
@@ -34,10 +37,18 @@ def constructModel(seriesLen, DORate=0.2):
     #gru1outDO = tf.keras.layers.Dropout(rate=DORate, name='rnn1DO')(gru1out)
 
     #, batch_input_shape=(1, seriesLen, 128)
+    # , implementation=1
 
-    gru2out = tf.keras.layers.GRU(32, dropout=DORate, implementation=1)(perSliceDenseOutDO)
-    gru2outDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(gru2out)
-    predOut = tf.keras.layers.Dense(1,name="resSigmoid",activation="sigmoid")(gru2outDO)
+    rnnOut = \
+        tf.keras.layers.GRU(
+            32, dropout=DORate,
+            kernel_regularizer = tf.keras.regularizers.L1L2(l2=l2regAlpha),
+            recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha))(perSliceDenseOutDO)
+    rnnOutDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(rnnOut)
+    predOut = \
+        tf.keras.layers.Dense(1,name="resSigmoid",activation="sigmoid",
+        kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)
+        )(rnnOutDO)
     predOutScaled = tf.keras.layers.Lambda(lambda x: x*5.0, name="result")(predOut)
 
     return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOutScaled)

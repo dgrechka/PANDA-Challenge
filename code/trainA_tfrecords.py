@@ -27,6 +27,8 @@ if not(trainTfRecordsPathEnv in os.environ):
 
 cytoImagePath = os.environ[trainTfRecordsPathEnv]
 
+print("TFRecords path is {0}".format(cytoImagePath))
+
 labelsPath = sys.argv[1]
 valRowsPath = sys.argv[2]
 checkpointPath = sys.argv[3]
@@ -36,7 +38,7 @@ outputPath = sys.argv[5]
 batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
-seed = 365
+seed = 36543452
 epochsToTrain = 80
 random.seed(seed)
 tf.random.set_seed(seed+151)
@@ -128,7 +130,7 @@ valLabelsDs = tf.data.Dataset.from_tensor_slices(vaLabels)
     
 valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
     .map(vaImageTransofrmWithLabel , num_parallel_calls=tf.data.experimental.AUTOTUNE) \
-    .batch(batchSize, drop_remainder=True) \
+    .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
 def previewSample(dsElem):
@@ -176,7 +178,7 @@ def previewSample(dsElem):
 #previewSample(testData[1])
 #exit(1)
 
-model = constructModel(trainSequenceLength, DORate=0.3)
+model = constructModel(trainSequenceLength, DORate=0.4, l2regAlpha = 1e-3)
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
@@ -188,7 +190,7 @@ callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
     tf.keras.callbacks.EarlyStopping(patience=int(17), monitor='val_kappa',mode='max'),
     # Write TensorBoard logs to `./logs` directory
-    #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
+    #tf.keras.callbacks.TensorBoard(log_dir=outputPath, histogram_freq = 5, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
             filepath=os.path.join(outputPath,"weights.hdf5"),
             save_best_only=True,
@@ -224,7 +226,7 @@ model.compile(
           optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
-          metrics=[QuadraticWeightedKappa()]
+          metrics=[QuadraticWeightedKappa(), tf.keras.metrics.MeanAbsoluteError(name="mae")]
           )
 print("model compiled")
 print(model.summary())

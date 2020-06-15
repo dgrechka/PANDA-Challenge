@@ -13,7 +13,8 @@ feature_description = {
 
 def getTfRecordDataset(tfRecordPaths):
     # random.shuffle(tfRecordPaths) # good chance to shuffle whole DS
-    print("Constructing TfRecords dataset with {0} files".format(len(tfRecordPaths)))
+    #print("Constructing TfRecords dataset with {0} files".format(len(tfRecordPaths)))
+    #print("Constructing TfRecords dataset with from {0} files".format(tfRecordPaths))
     return tf.data.TFRecordDataset(tfRecordPaths,compression_type="GZIP")
 
 

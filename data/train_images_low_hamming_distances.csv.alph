@@ -1,0 +1,36 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../code/getLowHammDist.R",
+            "Hash": "14EFA822C9FB39D828D535EED52B95538454DE01B83413FC6FE51B4B0F45555009E3CA131F5B887B037689D3E657970A7B67AD8F130E6BB298E37765C5928F57"
+          },
+          {
+            "RelativePath": "train_images_hamming_distances.csv",
+            "Hash": "9852DF2BBF4276E643BAAD8C0FA91404D37A0575B0C6AACC0C0039E816A26B83C47BD034C11D81027C20ACF7C4C353EB2C932DBD96B286D4D7E41975DD84F2F6"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "train_images_low_hamming_distances.csv",
+            "Hash": "26C97AC35ADF98F816FFF3E05DC29325A42E9329303782C5BF81CBA0B81F1C2EDA3804BC64BAB665EE5E9ABEAE639D7323449F8334FA9B26C2684E409D87F95D"
+          }
+        ],
+        "ResourceGroups": [],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "..",
+        "Command": "Rscript --vanilla $in1 $in2 $out1 200",
+        "Signature": "A3D82FC1D9CDF7D4382C4165C97E4B650A0CA3C8",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}
