@@ -42,7 +42,7 @@ def ProcessGenerateRecordTask(task):
     tileSize = task['tileSize']
     outImageSize = task['outImageSize']    
     minRequiredTiles = task['minRequiredTiles']
-    rotationStepsCount = task['rotationStepsCount']
+    rotationDegree = task['rotationDegree']
     #print("processing {0}".format(ident))
     #print("reading image from disk {0}".format(ident))
     
@@ -55,8 +55,6 @@ def ProcessGenerateRecordTask(task):
     im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
     tileSize = tileSize // initial_downscale_factor
 
-    M = rotationStepsCount
-    rotStep = 360.0 / M
     #quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]
     quantiles = [3/4, 4/5, 5/6, 7/8, 9/10, 1.0]    
     activeQuantileIdx = 0
@@ -65,46 +63,46 @@ def ProcessGenerateRecordTask(task):
     while len(gatheredTiles) < minRequiredTiles:
         gatheredTiles = []
         activeQuantile = quantiles[activeQuantileIdx]
-        for i in range(0,M):
-            effectiveDegree = rotStep*i
-            #print("rotating for {0}".format(effectiveDegree))
-            if effectiveDegree != 0.0:
-                rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
-            else:
-                rotated = im
-            #print("getting tiles")
-            _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=activeQuantile)
+        
+        effectiveDegree = rotationDegree
+        #print("rotating for {0}".format(effectiveDegree))
+        if effectiveDegree != 0.0:
+            rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
+        else:
+            rotated = im
+        #print("getting tiles")
+        _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=activeQuantile)
 
-            if len(tiles) == 0:
-                #print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
-                sys.stdout.write("0")
-                sys.stdout.flush()
-                continue
-
-            #print("normalizing")
-
-            # normalizing with contrasts
-            contrasts = []
-            means = []
-            for tile in tiles:        
-                mu = npImNorm.getImageMean_withoutPureBlack(tile)
-                contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
-                means.append(mu)
-                contrasts.append(contrast)
-            meanContrast = np.mean(contrasts)    
-            meanMean = np.mean(means)
-            for i in range(0,len(tiles)):
-                tiles[i] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[i], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
-            #print("resizing")
-
-            if outImageSize != tileSize:
-                resizedTiles = []
-                for tile in tiles:
-                    resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
-                tiles = resizedTiles
-            gatheredTiles.append(tiles)
-            sys.stdout.write(".")
+        if len(tiles) == 0:
+            #print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
+            sys.stdout.write("0")
             sys.stdout.flush()
+            continue
+
+        #print("normalizing")
+
+        # normalizing with contrasts
+        contrasts = []
+        means = []
+        for tile in tiles:        
+            mu = npImNorm.getImageMean_withoutPureBlack(tile)
+            contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
+            means.append(mu)
+            contrasts.append(contrast)
+        meanContrast = np.mean(contrasts)    
+        meanMean = np.mean(means)
+        for i in range(0,len(tiles)):
+            tiles[i] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[i], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
+        #print("resizing")
+
+        if outImageSize != tileSize:
+            resizedTiles = []
+            for tile in tiles:
+                resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
+            tiles = resizedTiles
+        gatheredTiles.append(tiles)
+        sys.stdout.write(".")
+        sys.stdout.flush()
 
         gatheredTiles = [item for sublist in gatheredTiles for item in sublist]
         if len(gatheredTiles) < minRequiredTiles:
@@ -193,23 +191,27 @@ if __name__ == '__main__':
     tasks = list()
     existsList = list()
 
+    rotStep = 360.0 / rotationStepsCount
+
     for tiffFile in tiffFiles:
-        tfPath = os.path.join(outPath,"{0}.tfrecords".format(tiffFile[:-5]))
-        if(os.path.exists(tfPath)):
-            existsList.append(tfPath)
-        else:
-            task = {
-                'ident' : tiffFile[:-5],
-                'tiffPath': os.path.join(imagesPath,tiffFile),
-                'tfrecordsPath': tfPath,
-                'tileSize': tileSize,
-                'outImageSize': outImageSize,
-                'minRequiredTiles': minRequiredTilesCount,
-                'rotationStepsCount': rotationStepsCount,
-                'initial_downscale_factor': initial_downscale_factor
-            }
-            tasks.append(task)
-    
+        for rotIdx in range(0,rotationStepsCount):
+            rotDegree = rotStep *    rotIdx
+            tfPath = os.path.join(outPath,"{0}-{1}.tfrecords".format(tiffFile[:-5],rotIdx))
+            if(os.path.exists(tfPath)):
+                existsList.append(tfPath)
+            else:
+                task = {
+                    'ident' : tiffFile[:-5],
+                    'tiffPath': os.path.join(imagesPath,tiffFile),
+                    'tfrecordsPath': tfPath,
+                    'tileSize': tileSize,
+                    'outImageSize': outImageSize,
+                    'minRequiredTiles': minRequiredTilesCount,
+                    'rotationDegree': rotDegree,
+                    'initial_downscale_factor': initial_downscale_factor
+                }
+                tasks.append(task)
+        
     print("Existing tfRecords file count: {0}".format(len(existsList)))
     def ExtractPackSize(imPack):
         return tf.shape(imPack)[0]
