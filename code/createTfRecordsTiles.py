@@ -12,7 +12,7 @@ import cv2
 from libExtractTile import getNotEmptyTiles
 import npImageNormalizations as npImNorm
 import npImageTransformation as npImTrans
-import tfDataProcessing as tfdp
+#import tfDataProcessing as tfdp
 
 def savePackAsTFRecord(imageList,outputFilename):
     """Saves a list of HxWxC uin8 images into .tfrecords file and GZIPing them"""
@@ -182,8 +182,8 @@ if __name__ == '__main__':
     
     print("Detected {0} CPU cores".format(M))
     #M = 1
-    M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
-    #M = 2
+    #M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
+    M = 3
 
     p = multiprocessing.Pool(M)
     print("Created process pool of {0} workers".format(M))
@@ -221,12 +221,14 @@ if __name__ == '__main__':
             tasks.append(task)
     
     print("Existing tfRecords file count: {0}".format(len(existsList)))
+
     def ExtractPackSize(imPack):
         return tf.shape(imPack)[0]
-    existingTilesCounts = \
-        tfdp.getTfRecordDataset(existsList) \
-        .map(tfdp.extractTilePackFromTfRecord) \
-        .map(ExtractPackSize)
+
+    # existingTilesCounts = \
+    #     tfdp.getTfRecordDataset(existsList) \
+    #     .map(tfdp.extractTilePackFromTfRecord) \
+    #     .map(ExtractPackSize)
     print("Starting {0} conversion tasks".format(len(tasks)))
 
     tilesCounts = p.map(ProcessGenerateRecordTask,tasks)
