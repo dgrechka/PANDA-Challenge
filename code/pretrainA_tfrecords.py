@@ -33,11 +33,11 @@ trainSequenceLength = int(sys.argv[5])
 
 print("TFRecords path is {0}".format(cytoImagePath))
 
-batchSize = 4
+batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
-epochsToTrain = 30
+epochsToTrain = 60
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
@@ -258,7 +258,7 @@ model.fit(x = trDs, \
       verbose = 2,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
-      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 10),
+      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 1),
       epochs=epochsToTrain)
 
 print("Done")

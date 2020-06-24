@@ -36,7 +36,7 @@ checkpointPath = sys.argv[4]
 outputPath = sys.argv[5]
 trainSequenceLength = int(sys.argv[6])
 
-batchSize = 4
+batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 36543452
@@ -258,7 +258,7 @@ for i in range(len(model.layers)):
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
-          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
+          optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-5, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
           metrics=[QuadraticWeightedKappa(), tf.keras.metrics.MeanAbsoluteError(name="mae")]
@@ -275,7 +275,7 @@ model.fit(x = trDs, \
       verbose = 2,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
-      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 10),
+      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 1),
       epochs=epochsToTrain)
 
 print("Done")
