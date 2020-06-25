@@ -36,7 +36,7 @@ checkpointPath = sys.argv[4]
 outputPath = sys.argv[5]
 trainSequenceLength = int(sys.argv[6])
 
-batchSize = 2
+batchSize = 1
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 36543452
@@ -275,7 +275,7 @@ model.fit(x = trDs, \
       verbose = 2,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
-      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 1),
+      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 11),
       epochs=epochsToTrain)
 
 print("Done")

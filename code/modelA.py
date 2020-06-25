@@ -40,7 +40,7 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
     # , implementation=1
 
     rnnOut = \
-        tf.keras.layers.GRU(
+        tf.keras.layers.LSTM(
             32, dropout=DORate,
             kernel_regularizer = tf.keras.regularizers.L1L2(l2=l2regAlpha),
             recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha))(perSliceDenseOutDO)
