@@ -26,17 +26,18 @@ if not(trainTfRecordsPathEnv in os.environ):
 
 cytoImagePath = os.environ[trainTfRecordsPathEnv]
 labelsPath = sys.argv[1]
-valRowsPath = sys.argv[2]
-outputPath = sys.argv[3]
-trainSequenceLength = int(sys.argv[4])
+singleImagePerClusterPath = sys.argv[2]
+valRowsPath = sys.argv[3]
+outputPath = sys.argv[4]
+trainSequenceLength = int(sys.argv[5])
 
 print("TFRecords path is {0}".format(cytoImagePath))
 
-batchSize = 2
+batchSize = 8
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
 seed = 35372932
-epochsToTrain = 5
+epochsToTrain = 60
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
@@ -49,22 +50,41 @@ def RemoveInvalidLabels(dataFrame):
         doSkip = False
         if ident == "b0a92a74cb53899311acc30b7405e101":
             doSkip = True # wierd labeld image
-        if not os.path.exists(os.path.join(cytoImagePath,"{0}.tfrecords".format(ident))):
-            print("Tiles for {0} are missing. Skipping this image".format(ident))
-            doSkip = True
+        # if not os.path.exists(os.path.join(cytoImagePath,"{0}.tfrecords".format(ident))):
+        #     print("Tiles for {0} are missing. Skipping this image".format(ident))
+        #     doSkip = True
         if doSkip:
             filteredDf = filteredDf[filteredDf['image_id'] != ident]
     print("{0} images after removing absent".format(len(filteredDf)))
     return filteredDf
 
+clusterDf = pd.read_csv(singleImagePerClusterPath, engine='python')
 labelsDf = pd.read_csv(labelsPath, engine='python')
 
 valIdxDf = pd.read_csv(valRowsPath, engine='python')
 valIdx = valIdxDf.iloc[:,0]
 #   print(valIdxDf)
 
-vaLabelsDf  = labelsDf.iloc[list(valIdx),:]
+vaClusterDf  = clusterDf.iloc[list(valIdx),:]
+trClusterDf = clusterDf[~clusterDf.index.isin(vaClusterDf.index)]
+
+vaClusters = set(vaClusterDf.iloc[:,1]) # image_cluster_id
+trClusterS = set(trClusterDf.iloc[:,1])
+print("{0} image clusters in train set, {1} image clusters in val set".format(len(trClusterS),len(vaClusters)))
+
+vaRowNums = list()
+rowIdx = 0
+labelsDict = dict()
+for row in labelsDf.itertuples():
+    if row.image_cluster_id in vaClusters:
+        vaRowNums.append(rowIdx)
+    labelsDict[row.image_id] = int(row.isup_grade)
+    rowIdx += 1
+
+vaLabelsDf  = labelsDf.iloc[list(vaRowNums),:]
 trLabelsDf = labelsDf[~labelsDf.index.isin(vaLabelsDf.index)]
+
+print("{0} images in train set, {1} images in val set".format(len(trLabelsDf),len(vaLabelsDf)))
 
 vaLabelsDf = RemoveInvalidLabels(vaLabelsDf)
 trLabelsDf = RemoveInvalidLabels(trLabelsDf)
@@ -73,21 +93,38 @@ trLabelsDf = RemoveInvalidLabels(trLabelsDf)
 #trLabelsDf = trLabelsDf.iloc[0:500,]
 #vaLabelsDf = vaLabelsDf.iloc[0:100,]
 
+trIdents = set(trLabelsDf.iloc[:,0])
+vaIdents = set(vaLabelsDf.iloc[:,0])
 
-trIdents = list(trLabelsDf.iloc[:,0])
-trTfRecordFileNames = [os.path.join(cytoImagePath,"{0}.tfrecords".format(x)) for x in trIdents]
-trLabels = list(trLabelsDf.iloc[:,2])
-vaIdents = list(vaLabelsDf.iloc[:,0])
-vaTfRecordFileNames = [os.path.join(cytoImagePath,"{0}.tfrecords".format(x)) for x in vaIdents]
-vaLabels = list(vaLabelsDf.iloc[:,2])
+trFilenames = os.listdir(cytoImagePath)
+trFilenames = [fname for fname in trFilenames if fname.endswith(".tfrecords")]
+print("Found {0} tfrecords files in source dir".format(len(trFilenames)))
+trTfRecordFileNames = list()
+trLabels = list()
+vaTfRecordFileNames = list()
+vaLabels = list()
+for trFilename in trFilenames:
+    imIdent = trFilename[0:32]
+    rotIdx = int(trFilename[33:-10])
+    fullPath = os.path.join(cytoImagePath,trFilename)
+    label = labelsDict[imIdent]
+    if imIdent in trIdents:
+        trTfRecordFileNames.append(fullPath)
+        trLabels.append(label)
+    elif imIdent in vaIdents:
+        if rotIdx != 0:
+            continue
+        vaTfRecordFileNames.append(fullPath)
+        vaLabels.append(label)
+    else:
+        print("WARN: ident {0} is nither in training nor in validation set".format(imIdent))
 
+trSamplesCount = len(trTfRecordFileNames)
+vaSamplesCount = len(vaTfRecordFileNames)
+
+print("{0} samples in training ds, {1} samples in validation ds".format(trSamplesCount, vaSamplesCount))
 #print("tf idents")
 #print(trIdents)
-
-trSamplesCount = len(trLabelsDf)
-vaSamplesCount = len(vaLabelsDf)
-
-print("{0} training samples, {1} val sample, {2} samples in total".format(trSamplesCount, vaSamplesCount, len(labelsDf)))
 
 
 trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
@@ -165,20 +202,23 @@ def previewSample(dsElem):
             idx = idx + 1
     plt.show()  # display it
 
-#testData = list(tr_ds.take(3).as_numpy_iterator())
+#testData = list(trDs.take(3).as_numpy_iterator())
+
+#for im,lab in  trDs.take(30).as_numpy_iterator():
+#    print("tr shape is {0}. label {1}".format(im.shape, lab))
 #previewSample(testData[0])
 
-model = constructModel(trainSequenceLength, DORate=0.4, l2regAlpha = 1e-3)
+model = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=True)
-#reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, verbose =1,
-#                                patience=int(5), min_lr=1e-7)
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, verbose =1,
+                                patience=int(2), min_lr=1e-7)
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    #tf.keras.callbacks.EarlyStopping(patience=int(10), monitor='val_loss',mode='min'),
+    tf.keras.callbacks.EarlyStopping(patience=int(3), monitor='val_loss',mode='min'),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
@@ -188,11 +228,11 @@ callbacks = [
             mode='min',
             save_weights_only=True,
             #monitor='val_root_recall'
-            monitor='loss' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
+            monitor='val_loss' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
-    #reduce_lr
+    reduce_lr
   ]
 
 loss = tf.keras.losses.LogCosh(
@@ -206,19 +246,19 @@ model.compile(
           optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
-          metrics=[QuadraticWeightedKappa(), tf.keras.metrics.MeanAbsoluteError()]
+          metrics=[QuadraticWeightedKappa(), tf.keras.metrics.MeanAbsoluteError(name="mae")]
           )
 print("model compiled")
 print(model.summary())
 
 model.fit(x = trDs, \
-      #validation_data = valDs,
-      #validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
+      validation_data = valDs,
+      validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
       #initial_epoch=initial_epoch,
       verbose = 2,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
-      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize)),
+      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 11),
       epochs=epochsToTrain)
 
 print("Done")

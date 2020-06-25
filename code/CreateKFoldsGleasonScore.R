@@ -8,6 +8,9 @@ K <- 5
 set.seed(4451)
 
 df1 <- read.csv(dfPath)
+
+print(paste0("Having ",nrow(df1)," data rows initially"))
+
 require(caret)
 folds <- createFolds(df1$gleason_score,k=K)
 for(i in 1:K) {
