@@ -16,12 +16,12 @@ print(paste0("Input pattern2 is ",inputPattern2))
 inputMatches <- Sys.glob(inputPattern2,dirmark=T)
 inputMatches <- inputMatches[endsWith(inputMatches,'/')]
 
-print(paste0(length(inputMatches),"input pattern matches"))
+print(paste0(length(inputMatches)," input pattern matches"))
 print(inputMatches)
 
 resDf <- NULL
 for(inputMatch in inputMatches)  {
-  slashes <- str_locate_all(inputMatch,'\\\\')
+  slashes <- str_locate_all(inputMatch,'/')
   foldName <- substr(
     inputMatch,
     slashes[[1]][nrow(slashes[[1]]),1] + 1,

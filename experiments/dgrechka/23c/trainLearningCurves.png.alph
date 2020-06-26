@@ -1,0 +1,38 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../../../code/LearningCurves.R",
+            "Hash": "4E26F5DC5BE2C4F5BFDBDF3E50389B7DF99050D45C6E5B5FCA0398DB766CCFD94727C889525ED2B6CAB3255343DD2CE02FAEEF90D263CEF587ABB5658FF814D3"
+          },
+          {
+            "RelativePath": "train/*/",
+            "Hash": {
+              "fold_3": "F0A0DE0DBA138A156DCF119C856E0294F52684D1FBE0DE3C534FD9B6D8C62F4ACABD5BDE7C2D80185DF50732F9AC9F06BEBB9BBE1128DC6CE6DE92C812022D9E"
+            }
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "trainLearningCurves.png",
+            "Hash": "2DBD240A1E4F52C5917CD5671ABD4141F46EE46B823A8F30DBFA3E59C9990C274F6EE87BD975355362BFF3D608CA1FD4208E7CECA7E69801685CF1EA6886D7E1"
+          }
+        ],
+        "ResourceGroups": [],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "../../..",
+        "Command": "Rscript $in1 $in2 $out1",
+        "Signature": "44F264F0F360CA6F5C2C4B12C3BA261E06FE135E",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

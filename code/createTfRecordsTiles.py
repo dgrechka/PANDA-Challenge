@@ -58,7 +58,7 @@ def ProcessGenerateRecordTask(task):
     M = rotationStepsCount
     rotStep = 360.0 / M
     #quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]
-    quantiles = [3/4, 4/5, 5/6, 7/8, 9/10, 1.0]    
+    quantiles = [3/4]
     activeQuantileIdx = 0
     for i in range(0,M):
         tiles = []
@@ -77,15 +77,6 @@ def ProcessGenerateRecordTask(task):
             #print("getting tiles")
             _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=activeQuantile)
 
-            #print("got {0} tiles ".format(len(tiles)))
-            # if len(tiles) == 0:
-            #     #print("angle {0} for {1} results in 0 tiles. skipping this angle".format(effectiveDegree, ident))
-            #     sys.stdout.write("0")
-            #     sys.stdout.flush()
-            #     continue
-
-            #print("normalizing")
-
             if len(tiles) < minRequiredTiles:
                 if activeQuantileIdx == (len(quantiles) - 1):
                     if len(tiles) == 0:
@@ -100,19 +91,19 @@ def ProcessGenerateRecordTask(task):
             
 
         # normalizing with contrasts
-        contrasts = []
-        means = []
-        #print("normalzing {0} tiles".format(len(tiles)))
-        for tile in tiles:        
-            mu = npImNorm.getImageMean_withoutPureBlack(tile)
-            contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
-            means.append(mu)
-            contrasts.append(contrast)
-        meanContrast = np.mean(contrasts)    
-        meanMean = np.mean(means)
-        if meanMean > 0.0:
-            for j in range(0,len(tiles)):
-                tiles[j] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[j], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
+        # contrasts = []
+        # means = []
+        # #print("normalzing {0} tiles".format(len(tiles)))
+        # for tile in tiles:        
+        #     mu = npImNorm.getImageMean_withoutPureBlack(tile)
+        #     contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
+        #     means.append(mu)
+        #     contrasts.append(contrast)
+        # meanContrast = np.mean(contrasts)    
+        # meanMean = np.mean(means)
+        # if meanMean > 0.0:
+        #     for j in range(0,len(tiles)):
+        #         tiles[j] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[j], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
         #print("resizing")
 
         if outImageSize != tileSize:
@@ -183,7 +174,7 @@ if __name__ == '__main__':
     print("Detected {0} CPU cores".format(M))
     #M = 1
     #M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
-    M = 3
+    M = 4
 
     p = multiprocessing.Pool(M)
     print("Created process pool of {0} workers".format(M))
