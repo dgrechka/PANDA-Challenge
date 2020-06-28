@@ -42,7 +42,7 @@ def ProcessGenerateRecordTask(task):
     tileSize = task['tileSize']
     outImageSize = task['outImageSize']    
     minRequiredTiles = task['minRequiredTiles']
-    rotationStepsCount = task['rotationStepsCount']
+    rotationDegree = task['rotationDegree']
     #print("processing {0}".format(ident))
     #print("reading image from disk {0}".format(ident))
     
@@ -55,8 +55,6 @@ def ProcessGenerateRecordTask(task):
     im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
     tileSize = tileSize // initial_downscale_factor
 
-    M = rotationStepsCount
-    rotStep = 360.0 / M
     #quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]
     quantiles = [3/4]
     activeQuantileIdx = 0
@@ -187,6 +185,8 @@ if __name__ == '__main__':
 
     tasks = list()
     existsList = list()
+
+    rotStep = 360.0 / rotationStepsCount
 
     for tiffFile in tiffFiles:
         tfPath = os.path.join(outPath,"{0}.tfrecords".format(tiffFile[:-5]))
