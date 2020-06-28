@@ -103,6 +103,11 @@ trLabelsDf = RemoveInvalidLabels(trLabelsDf)
 trIdents = set(trLabelsDf.iloc[:,0])
 vaIdents = set(vaLabelsDf.iloc[:,0])
 
+vaOrigImagesCount = len(vaIdents)
+trOrigImagesCount = len(trIdents)
+
+print("{0} QC passed images in train set, {1} QC passed images in val set".format(trOrigImagesCount,vaOrigImagesCount))
+
 trFilenames = os.listdir(cytoImagePath)
 trFilenames = [fname for fname in trFilenames if fname.endswith(".tfrecords")]
 print("Found {0} tfrecords files in source dir".format(len(trFilenames)))
@@ -275,7 +280,7 @@ model.fit(x = trDs, \
       verbose = 2,
       callbacks=callbacks,
       shuffle=False, # dataset is shuffled explicilty
-      steps_per_epoch= int(math.ceil(trSamplesCount / batchSize) / 1),
+      steps_per_epoch= int(math.ceil(trOrigImagesCount / batchSize)),
       epochs=epochsToTrain)
 
 print("Done")

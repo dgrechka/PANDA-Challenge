@@ -1,0 +1,62 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../../../../code/pretrainA_tfrecords.py",
+            "Hash": "1D0095C2D4A2F13D021717947AB53B794462D879B97FBBD2F1E51D267B4525BC4AF5997123A34BEF9D48AAF053968C1EDD9F504E69732DCEAF7C5AAA80B58A28"
+          },
+          {
+            "RelativePath": "../../../../data/trainWithClusters.csv",
+            "Hash": "9EF644F73FAF0B321F49602D25C306AA0F78EBEB792A9ECA3316315704EA3E5DF967B716EB27CFBEAC37510C6E0DD9A20CE38F47882052AA5B50A628D3A5FFBA"
+          },
+          {
+            "RelativePath": "../../../../data/singleImagePerCluster.csv",
+            "Hash": "E2AC8C3ED76EAC83DD69749A993CA357F8547215B5559A1AF2A3776BA69CA20D67FAEE2FDAEB37A0435F16CD0AA2D5137EB0CC76ED4E180A8D8035B775F12A5C"
+          },
+          {
+            "RelativePath": "../val_folds/*.csv",
+            "Hash": {
+              "fold_3": "D5E76488C6A5443E80639B7D059FFE7DC337CF9F8BD9CE4A0610E361A60C52C5699182F26DBC56F79906CE4EE1E6C4D894B4CA93523D3EDA6FB2AFE626AC24C4"
+            }
+          },
+          {
+            "RelativePath": "../../../../code/tfDataProcessing.py",
+            "Hash": "B9AD202FDFA3364E7939FBCCE9B88C160D85EB836ABB72B78240E19B9C276DE12BFCDBBA999D0EADDC9F382CA953EC5FF5A22CF40D5AD106B7B2920A2F7AB755"
+          },
+          {
+            "RelativePath": "../../../../code/tfQuadraticWeightedKappa.py",
+            "Hash": "A0B7D050829DA61317DEB390C63F07F66FDDB0DF8F4AF8227B0DEF0F54F4B2E8519F34F1D4994B57E4DEF8F3E607208171E54F38AC761AEF29B1C2560E583807"
+          },
+          {
+            "RelativePath": "../../../../code/modelA.py",
+            "Hash": "EEB6BAB55B94EEF12BD3A86497FE63079999377ADA18E85C7CDE1B90CB0635A1604342BC406BB92C9EE9CCA51FD6A04132A7332E24319511F983B6D4709E00CB"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "*/",
+            "Hash": {
+              "fold_3": "CE0E4CD942F676CE6C5A082C111C5682111DA13035A1CF26777789F2CC9F3B30BDC00DBEBFC9DC301116E3F12AF56B71AC6EF753E1CA0E65181A2C15EFFA0694"
+            }
+          }
+        ],
+        "ResourceGroups": [
+          "gpu"
+        ],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "../../../..",
+        "Command": "python $in1 $in2 $in3 $in4 $out1 64",
+        "Signature": "F0793C06008408813A97FC9381A96BA56047E0AB",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}
