@@ -250,7 +250,7 @@ callbacks = [
 #     name='logcosh'
 # )
 
-loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
 
 
 if os.path.exists(checkpointPath):
