@@ -2,9 +2,11 @@ import tensorflow as tf
 import numpy as np
 
 class QuadraticWeightedKappa(tf.keras.metrics.Metric):
-    def __init__(self, maxClassesCount=6, name='kappa', **kwargs):        
+    def __init__(self, maxClassesCount=6, name='kappa', input_format="scalar", **kwargs):        
         super(QuadraticWeightedKappa, self).__init__(name=name, **kwargs)
         self.M = maxClassesCount
+
+        self.mode = input_format
 
         self.O = self.add_weight(name='O', initializer='zeros',shape=(self.M,self.M,), dtype=tf.int64)
         self.W = self.add_weight(name='W', initializer='zeros',shape=(self.M,self.M,), dtype=tf.float32)
@@ -35,9 +37,13 @@ class QuadraticWeightedKappa(tf.keras.metrics.Metric):
 
 
     def update_state(self, y_true, y_pred, sample_weight=None):
-        # shape is: Batch x 1
+        if self.mode == "prob_vector":
+            # BxP -> Bx1 shape
+            y_true = tf.math.argmax(y_true, axis = 0, output_type=tf.int32)
+            y_pred = tf.math.argmax(y_pred, axis = 0, output_type=tf.int32)
         y_true = tf.reshape(y_true, [-1])
         y_pred = tf.reshape(y_pred, [-1])
+
 
         y_true_int = tf.cast(tf.math.round(y_true), dtype=tf.int64)
         y_pred_int = tf.cast(tf.math.round(y_pred), dtype=tf.int64)

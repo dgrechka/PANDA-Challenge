@@ -40,15 +40,14 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
     # , implementation=1
 
     rnnOut = \
-        tf.keras.layers.LSTM(
+        tf.keras.layers.GRU(
             32, dropout=DORate,
             kernel_regularizer = tf.keras.regularizers.L1L2(l2=l2regAlpha),
             recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha))(perSliceDenseOutDO)
     rnnOutDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(rnnOut)
     predOut = \
-        tf.keras.layers.Dense(1,name="resSigmoid",activation="sigmoid",
+        tf.keras.layers.Dense(6,name="resLogits",activation="linear",
         kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)
         )(rnnOutDO)
-    predOutScaled = tf.keras.layers.Lambda(lambda x: x*5.0, name="result")(predOut)
 
-    return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOutScaled)
+    return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOut)

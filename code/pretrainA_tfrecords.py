@@ -147,10 +147,10 @@ def vaImageTransofrm(imagePack):
                     trainSequenceLength)
 
 def trImageTransformWithLabel(im, lab):
-    return trImageTransform(im),lab
+    return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
 
 def vaImageTransofrmWithLabel(im, lab):
-    return (vaImageTransofrm(im),lab)
+    return (vaImageTransofrm(im),tfdp.isup_to_smoothed_labels(lab))
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
     .map(trImageTransformWithLabel, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
@@ -241,18 +241,19 @@ callbacks = [
     reduce_lr
   ]
 
-loss = tf.keras.losses.LogCosh(
-    #reduction=losses_utils.ReductionV2.AUTO,
-    name='logcosh'
-)
+# loss = tf.keras.losses.LogCosh(
+#     #reduction=losses_utils.ReductionV2.AUTO,
+#     name='logcosh'
+# )
 
+loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
           optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
-          metrics=[QuadraticWeightedKappa(), tf.keras.metrics.MeanAbsoluteError(name="mae")]
+          metrics=[QuadraticWeightedKappa(input_format='prob_vector')] # tf.keras.metrics.MeanAbsoluteError(name="mae")
           )
 print("model compiled")
 print(model.summary())

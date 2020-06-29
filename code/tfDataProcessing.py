@@ -84,6 +84,26 @@ def loadTiffImage(imagePath,ident,label,tileSize=1024):
 def isValidPack(imagePack, label):
     return label <= 5
 
+def isup_to_smoothed_labels(label):
+    label = tf.cast(label, dtype=tf.int32)
+    # label smothing that accounts for order
+    def case0(): return tf.constant([2/3,   2/9,    1/9,    0,      0,      0],dtype=tf.float32)
+    def case1(): return tf.constant([1/6,   2/3,    1/9,    1/18,   0,      0],dtype=tf.float32)
+    def case2(): return tf.constant([1/18,  1/9,    2/3,    1/9,    1/18,   0],dtype=tf.float32)
+    def case3(): return tf.constant([0,     1/18,   1/9,    2/3,    1/9,    1/18],dtype=tf.float32)
+    def case4(): return tf.constant([0,     0,      1/18,   1/9,    2/3,    1/6],dtype=tf.float32)
+    def case5(): return tf.constant([0,     0,      0,      1/9,    2/9,    2/3],dtype=tf.float32)
+    return tf.switch_case(
+        label,
+        {
+            0: case0,
+            1: case1,
+            2: case2,
+            3: case3,
+            4: case4,
+            5: case5
+        })
+
 def coerceSeqSize(imagePack, trainSequenceLength):
   imagePackShape = tf.shape(imagePack)
   outputShape = [
