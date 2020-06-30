@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCuttOffQuantile = 1/4):
+def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCuttOffQuantile = 3/4, emptyCutOffMaxThreshold = 25):
     '''Returns the list of non-empty tile indeces (tile_row_idx,tile_col_idx) and corresponding list of tile npArrays).
     Each index list element specifies the zero based index (row_idx,col_idx) of square tile which contain some data (non-empty)'''
 
@@ -43,19 +43,23 @@ def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCuttOffQ
             for col_idx in range(0,horTiles):
                 tile = extractTileData(row_idx, col_idx)
                 # if the tile contains pure white pixels (no information) we skip it (do not return)
-                tileMax = np.nanmax(tile)
-                tileQuantile = np.quantile(tile, emptyCuttOffQuantile)
                 #print("row {0} col {1} min_v {2}".format(row_idx,col_idx,tileMin))
-                if tileMax < 25: # too black! there is no tissue areas
-                    continue
-                if tileQuantile < 15: # too many black pixels portion
-                    continue
+                if not(emptyCutOffMaxThreshold is None):
+                    tileMax = np.nanmax(tile)
+                    if tileMax < emptyCutOffMaxThreshold: # too black! there is no tissue areas
+                        continue
+                if not(emptyCuttOffQuantile is None):
+                    tileQuantile = np.quantile(tile, emptyCuttOffQuantile)
+                    if tileQuantile < 15: # too many black pixels portion
+                        continue
 
                 tile = coerceTileSize(tile)
 
                 indexResult.append((row_idx,col_idx))
                 dataResult.append(tile)
-                tileIntensity.append(tileQuantile)
+                
+                tileMean = np.nanmean(tile)
+                tileIntensity.append(tileMean)
             
         
         # sorting the tiles according to intensity

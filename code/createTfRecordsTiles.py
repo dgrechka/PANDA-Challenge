@@ -58,7 +58,7 @@ def ProcessGenerateRecordTask(task):
     M = rotationStepsCount
     rotStep = 360.0 / M
     #quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]
-    quantiles = [3/4]
+    quantiles = [1]
     activeQuantileIdx = 0
     for i in range(0,M):
         tiles = []
@@ -75,7 +75,7 @@ def ProcessGenerateRecordTask(task):
             else:
                 rotated = im
             #print("getting tiles")
-            _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=activeQuantile)
+            _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=None, emptyCutOffMaxThreshold=10)
 
             if len(tiles) < minRequiredTiles:
                 if activeQuantileIdx == (len(quantiles) - 1):
@@ -173,8 +173,8 @@ if __name__ == '__main__':
     
     print("Detected {0} CPU cores".format(M))
     #M = 1
-    #M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
-    M = 4
+    M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
+    #M = 4
 
     p = multiprocessing.Pool(M)
     print("Created process pool of {0} workers".format(M))
