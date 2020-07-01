@@ -40,8 +40,7 @@ def ProcessGenerateRecordTask(task):
     tiffPath = task['tiffPath']
     tfrecordsPath = task['tfrecordsPath']
     tileSize = task['tileSize']
-    outImageSize = task['outImageSize']    
-    minRequiredTiles = task['minRequiredTiles']
+    outImageSize = task['outImageSize']
     rotationStepsCount = task['rotationStepsCount']
     #print("processing {0}".format(ident))
     #print("reading image from disk {0}".format(ident))
@@ -57,63 +56,59 @@ def ProcessGenerateRecordTask(task):
 
     M = rotationStepsCount
     rotStep = 360.0 / M
-    #quantiles = [1/10, 1/8, 1/6, 1/5, 1/4, 1/3, 1/2, 2/3, 3/4, 4/5, 5/6, 7/8, 9/10, 1.0]
-    quantiles = [1]
-    activeQuantileIdx = 0
     for i in range(0,M):
         tiles = []
         tfrecordsPathIdx = "{0}-{1}.tfrecords".format(tfrecordsPath[0:-10], i)
         effectiveDegree = rotStep*i
         
-        #print("Starting task {0} ({1},{2})".format(ident,h,w))
-        while len(tiles) < minRequiredTiles:
-            activeQuantile = quantiles[activeQuantileIdx]
-            #print("rotating for {0}".format(effectiveDegree))
-            if effectiveDegree != 0.0:
-                #print("rotating to {0}".format(effectiveDegree))
-                rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
+        if effectiveDegree != 0.0:
+            #print("rotating to {0}".format(effectiveDegree))
+            rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
+        else:
+            rotated = im
+        #print("getting tiles")
+        _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=None, emptyCutOffMaxThreshold=10)
+
+        if len(tiles) == 0:
+            print("WARN: Image {0} resulted in 0 tiles. producing blank (black) single tile TfRecords file".format(ident))
+            tiles = [ np.zeros((outImageSize,outImageSize,3),dtype=np.uint8) ]
+        else:
+            # filtering out non green
+            nonRedTiles = []
+            for tile in tiles:
+                red = np.mean(tile[:,:,0]) # supposing RGB, not BGR
+                green = np.mean(tile[:,:,1])
+                #print("[R:{0}\tG:{1}; ratio {2}".format(red,green, green/red))
+                if green / red >= 1.2: # green must be at least 1.5 times more than red (to remove white marker tiles)
+                    nonRedTiles.append(tile)
+            if len(nonRedTiles)>0:
+                tiles = nonRedTiles
             else:
-                rotated = im
-            #print("getting tiles")
-            _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=None, emptyCutOffMaxThreshold=10)
+                print("WARN: omited non-green tiles filtering, as the filtering impose the empty tile set")
 
-            if len(tiles) < minRequiredTiles:
-                if activeQuantileIdx == (len(quantiles) - 1):
-                    if len(tiles) == 0:
-                        print("WARN: Image {0} resulted in 0 tiles. producing blank (black) single tile TfRecords file".format(ident))
-                        tiles = [ np.zeros((outImageSize,outImageSize,3),dtype=np.uint8) ]
-                    break
-                else:
-                    activeQuantileIdx += 1
-                    sys.stdout.write("[q{0:.2f}]".format(quantiles[activeQuantileIdx]))
-                    sys.stdout.flush()
-                    continue
-            
-
-        # normalizing with contrasts
-        # contrasts = []
-        # means = []
-        # #print("normalzing {0} tiles".format(len(tiles)))
-        # for tile in tiles:        
-        #     mu = npImNorm.getImageMean_withoutPureBlack(tile)
-        #     contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
-        #     means.append(mu)
-        #     contrasts.append(contrast)
-        # meanContrast = np.mean(contrasts)    
-        # meanMean = np.mean(means)
-        # if meanMean > 0.0:
-        #     for j in range(0,len(tiles)):
-        #         tiles[j] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[j], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=1.0)
-        #print("resizing")
-
+            # normalizing with contrasts
+            contrasts = []
+            means = []
+            #print("normalzing {0} tiles".format(len(tiles)))
+            for tile in tiles:        
+                mu = npImNorm.getImageMean_withoutBlack(tile, 40.0)
+                if not np.isnan(mu):
+                    contrast = npImNorm.getImageContrast_withoutPureBlack(tile, precomputedMu=mu)
+                    means.append(mu)
+                    contrasts.append(contrast)
+            if len(means)>0: # whole image is not entirly black
+                meanContrast = np.mean(contrasts)    
+                meanMean = np.mean(means)
+                if meanMean > 0.0:
+                    for j in range(0,len(tiles)):
+                        tiles[j] = npImNorm.GCNtoRGB_uint8(npImNorm.GCN(tiles[j], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=2.0)
+        
         if outImageSize != tileSize:
             resizedTiles = []
             for tile in tiles:
                 resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
             tiles = resizedTiles
-        sys.stdout.write(".")
-        sys.stdout.flush()
-
+        
         #print("saving {0}".format(len(tiles)))
         savePackAsTFRecord(tiles,tfrecordsPathIdx)
         sys.stdout.write("({0}:{1})".format(i,len(tiles)))
@@ -152,20 +147,16 @@ if __name__ == '__main__':
 
     imagesPath = sys.argv[1]
     outPath = sys.argv[2]
-    outHistFile = sys.argv[3]
     #outIdxFile = sys.argv[4]
-    tileSize = int(sys.argv[4])
-    outImageSize = int(sys.argv[5])
-    minRequiredTilesCount = int(sys.argv[6])
-    rotationStepsCount = int(sys.argv[7])
-    initial_downscale_factor = int(sys.argv[8])
+    tileSize = int(sys.argv[3])
+    outImageSize = int(sys.argv[4])
+    rotationStepsCount = int(sys.argv[5])
+    initial_downscale_factor = int(sys.argv[6])
 
     print("tiff images path: {0}".format(imagesPath))
     print("out dir: {0}".format(outPath))
-    print("hist file: {0}".format(outHistFile))
     print("tile size: {0}".format(tileSize))
     print("out image size: {0}".format(outImageSize))
-    print("min Required Tiles Count: {0}".format(minRequiredTilesCount))
     print("rotation steps count: {0}".format(rotationStepsCount))
     print("initial downscale factor: {0}".format(initial_downscale_factor))
 
@@ -173,8 +164,8 @@ if __name__ == '__main__':
     
     print("Detected {0} CPU cores".format(M))
     #M = 1
-    M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
-    #M = 4
+    #M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
+    M = 2
 
     p = multiprocessing.Pool(M)
     print("Created process pool of {0} workers".format(M))
@@ -183,7 +174,8 @@ if __name__ == '__main__':
     tiffFiles = [x for x in files if x.endswith(".tiff")]
 
     # uncomment for short (test) run
-    #tiffFiles = tiffFiles[0:20]
+    #tiffFiles = [x for x in tiffFiles if x[0:32]=="00d7ec94436e3a1416a3b302914957d3"]
+    #tiffFiles = tiffFiles[0:50]
 
     tasks = list()
     existsList = list()
@@ -205,7 +197,6 @@ if __name__ == '__main__':
                 'tfrecordsPath': tfPath,
                 'tileSize': tileSize,
                 'outImageSize': outImageSize,
-                'minRequiredTiles': minRequiredTilesCount,
                 'rotationStepsCount': rotationStepsCount,
                 'initial_downscale_factor': initial_downscale_factor
             }

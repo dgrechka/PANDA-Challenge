@@ -4,22 +4,38 @@ import math
 def getImageMean_withoutPureBlack(image):
     black = np.array([0,0,0])
     cleared = np.where(image==black,np.NaN,image)
-    return np.nanmean(cleared)
-    
+    result = np.nanmean(cleared)
+    if np.isnan(result):
+        result = 0.0 # pure black
+    return result
 
+def getImageMean_withoutBlack(image,blackThreshold):
+    #print("image shape is {0}".format(image.shape))
+    imageBrightness = np.nanmax(image, axis=-1)
+
+    blackMap = imageBrightness < blackThreshold
+    blackMap = np.expand_dims(blackMap,axis=-1)
+    blackMap = np.tile(blackMap, (1,1,3))
+    if not(np.any(blackMap)):
+        # nonNan exists
+        cleared = np.where(blackMap,np.NaN,image)
+        return np.nanmean(cleared)
+    else:
+        return np.NaN # pure black
+    
 def getImageContrast_withoutPureBlack(image, regTerm=0.0, precomputedMu = None):
     """(0,0,0) pixels are excluded from contrast evaluation"""
     if precomputedMu is None:
-        mu = precomputedMu
-    else:
         mu = getImageMean_withoutPureBlack(image)
+    else:
+        mu = precomputedMu
     diff = image - mu
     return getImageContrast(image,regTerm=regTerm, precomputedDiff=diff)
 
 def getImageContrast(image, regTerm=0.0, precomputedDiff = None):
     """Entire image contrast as defined in Goodfellow et al. 2016 "Deep learning" p.442"""
     if precomputedDiff is None:
-        mu = np.mean(image)
+        mu = getImageMean_withoutPureBlack(image)
         diff = image - mu
     else:
         diff = precomputedDiff
