@@ -23,23 +23,29 @@ trainTfRecordsPathEnv = "trainTfRecordsPath"
 
 if not(trainTfRecordsPathEnv in os.environ):
     print("Can't find environmental variable {0}".format(trainTfRecordsPathEnv))
+    exit(1)
 
 cytoImagePath = os.environ[trainTfRecordsPathEnv]
+
+print("TFRecords path is {0}".format(cytoImagePath))
+
 labelsPath = sys.argv[1]
 singleImagePerClusterPath = sys.argv[2]
 valRowsPath = sys.argv[3]
-outputPath = sys.argv[4]
-trainSequenceLength = int(sys.argv[5])
-
-print("TFRecords path is {0}".format(cytoImagePath))
+checkpointPath = sys.argv[4]
+outputPath = sys.argv[5]
+trainSequenceLength = int(sys.argv[6])
 
 batchSize = 2
 shuffleBufferSize = 512
 prefetchSize = multiprocessing.cpu_count() + 1
-seed = 35372932
-epochsToTrain = 60
+seed = 36543452
+epochsToTrain = 160
 random.seed(seed)
 tf.random.set_seed(seed+151)
+
+#gpu = tf.config.experimental.list_physical_devices('GPU')
+#tf.config.experimental.set_memory_growth(gpu[0], True)
 
 def RemoveInvalidLabels(dataFrame):
     print("{0} images before removing absent".format(len(dataFrame)))
@@ -57,6 +63,7 @@ def RemoveInvalidLabels(dataFrame):
             filteredDf = filteredDf[filteredDf['image_id'] != ident]
     print("{0} images after removing absent".format(len(filteredDf)))
     return filteredDf
+
 
 clusterDf = pd.read_csv(singleImagePerClusterPath, engine='python')
 labelsDf = pd.read_csv(labelsPath, engine='python')
@@ -134,17 +141,16 @@ print("{0} samples in training ds, {1} samples in validation ds".format(trSample
 #print("tf idents")
 #print(trIdents)
 
-
 trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
     .map(tfdp.extractTilePackFromTfRecord)
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
+    
 
 def trImageTransform(imagePack):
     return tfdp.augment(tfdp.coerceSeqSize(imagePack,trainSequenceLength))
 
 def vaImageTransofrm(imagePack):
     return tfdp.coerceSeqSize(imagePack,trainSequenceLength)                    
-
 
 def trImageTransformWithLabel(im, lab):
     #return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
@@ -160,7 +166,7 @@ trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
     .shuffle(shuffleBufferSize,seed=seed+31) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
-    
+
 valImagesDs = tfdp.getTfRecordDataset(vaTfRecordFileNames) \
     .map(tfdp.extractTilePackFromTfRecord)
 valLabelsDs = tf.data.Dataset.from_tensor_slices(vaLabels)
@@ -170,74 +176,32 @@ valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
-def previewSample(dsElem):
-    imagePack,label = dsElem
-    N,_,_,_ = imagePack.shape
-    print("Pack size is {0}".format(N))
-    #print(imagePack)
-    cols = round(math.sqrt(N))
-    rows = math.ceil(N/cols)
-
-    plt.figure()
-    plt.title("tile [0]")    
-    plt.imshow(imagePack[0] / 255.0)
-
-
-    plt.figure()
-    plt.title("tile [1]")    
-    plt.imshow(imagePack[1] / 255.0)
-
-
-    fig, ax = plt.subplots(rows,cols)    
-    fig.set_facecolor((0.3,0.3,0.3))
-
-    print("label is {0}".format(label))
-
-    idx = 1
-    for row in range(0,rows):
-        for col in range(0,cols):            
-            row = (idx - 1) // cols
-            col = (idx -1) % cols
-            #ax[row,col].set_title("tile [{0},{1}]".format(tile_r,tile_c))    
-            
-            ax[row,col].axis('off')
-            if idx-1 < N:
-                im = np.squeeze(imagePack[idx-1,:,:,:])
-                im = im / 255.0 
-                # as data contains float range 0.0 - 255.-
-                # to make imshow work properly we need to map into interval 0.0 - 1.0
-                ax[row,col].imshow(im) 
-            idx = idx + 1
-    plt.show()  # display it
-
-#testData = list(trDs.take(3).as_numpy_iterator())
-
-#for im,lab in  trDs.take(30).as_numpy_iterator():
-#    print("tr shape is {0}. label {1}".format(im.shape, lab))
+#testData = list(trDs.take(1).repeat(2).as_numpy_iterator())
 #previewSample(testData[0])
+#previewSample(testData[1])
+#exit(1)
 
-model,backbone = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
-backbone.trainable = False
+model, backbone = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
 print("model constructed")
 
-csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=True)
-reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, verbose =1,
-                                patience=int(3), min_lr=1e-7)
+csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
+                                patience=int(8), min_lr=1e-7, mode='max')
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(4), monitor='val_loss',mode='min'),
+    tf.keras.callbacks.EarlyStopping(patience=int(17), monitor='val_kappa',mode='max'),
     # Write TensorBoard logs to `./logs` directory
-    #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
+    #tf.keras.callbacks.TensorBoard(log_dir=outputPath, histogram_freq = 5, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
             filepath=os.path.join(outputPath,"weights.hdf5"),
             save_best_only=True,
             verbose=True,
-            mode='min',
+            mode='max',
             save_weights_only=True,
             #monitor='val_root_recall'
-            monitor='val_loss' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
+            monitor='val_kappa' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
@@ -251,19 +215,31 @@ loss = tf.keras.losses.LogCosh(
 
 #loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
+
+if os.path.exists(checkpointPath):
+  print("Loading pretrained weights {0}".format(checkpointPath))
+  model.load_weights(checkpointPath, by_name=True)
+  print("Loaded pretrained weights {0}".format(checkpointPath))
+else:
+  print("Starting learning from scratch")
+
+backbone.trainable = False
+
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
           optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
-          metrics=[QuadraticWeightedKappa(input_format='scalar'), tf.keras.metrics.MeanAbsoluteError(name="mae")] # tf.keras.metrics.MeanAbsoluteError(name="mae")
+          metrics=[QuadraticWeightedKappa(input_format='scalar'), tf.keras.metrics.MeanAbsoluteError(name="mae") ] # tf.keras.metrics.MeanAbsoluteError(name="mae")
           )
 print("model compiled")
 print(model.summary())
 
+
+
 model.fit(x = trDs, \
       validation_data = valDs,
-      validation_steps = int(math.ceil(vaSamplesCount / batchSize)),
+      validation_steps = int(math.floor(vaSamplesCount / batchSize)),
       #initial_epoch=initial_epoch,
       verbose = 2,
       callbacks=callbacks,

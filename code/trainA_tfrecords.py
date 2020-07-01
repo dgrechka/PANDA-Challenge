@@ -221,7 +221,8 @@ def previewSample(dsElem):
 #previewSample(testData[1])
 #exit(1)
 
-model = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
+model, backbone = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
+backbone.trainable = False
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
@@ -264,8 +265,7 @@ else:
   print("Starting learning from scratch")
 
 
-for i in range(len(model.layers)):
-  model.layers[i].trainable = True
+backbone.trainable = True
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),

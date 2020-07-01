@@ -12,8 +12,7 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
         # it should have exactly 3 inputs channels,
         # and width and height should be no smaller than 32. E.g. (200, 200, 3) would be one valid value
         pooling=None)  # Tx8x8x1024 in case of None pooling
-    denseNet.trainable = False
-
+    
     converted = tf.keras.applications.densenet.preprocess_input(netInput)
     print("converted input shape {0}".format(converted.shape))
     cnnOut = tf.keras.layers.TimeDistributed(denseNet, name='cnns')(converted)  # Tx7x7x1024 in case of None pooling
@@ -57,4 +56,4 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
         tf.keras.layers.Lambda(lambda x: x*5.0, name="scaledRes")(predOut)
 
 
-    return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOutScaled)
+    return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOutScaled), denseNet
