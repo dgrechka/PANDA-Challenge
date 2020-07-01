@@ -45,9 +45,16 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
             kernel_regularizer = tf.keras.regularizers.L1L2(l2=l2regAlpha),
             recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha))(perSliceDenseOutDO)
     rnnOutDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(rnnOut)
+    # predOut = \
+    #     tf.keras.layers.Dense(6,name="resLogits",activation="linear",
+    #     kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)
+    #     )(rnnOutDO)
     predOut = \
-        tf.keras.layers.Dense(6,name="resLogits",activation="linear",
+        tf.keras.layers.Dense(1,name="unitRes",activation="sigmoid",
         kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)
         )(rnnOutDO)
+    predOutScaled = \
+        tf.keras.layers.Lambda(lambda x: x*5.0, name="scaledRes")(predOut)
 
-    return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOut)
+
+    return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOutScaled)

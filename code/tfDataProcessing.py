@@ -84,6 +84,21 @@ def loadTiffImage(imagePath,ident,label,tileSize=1024):
 def isValidPack(imagePack, label):
     return label <= 5
 
+def bigImageFromTiles(imagePack, tilesCountInSide):
+    tilesNeeded = tilesCountInSide * tilesCountInSide
+
+    coercedPack = coerceSeqSize(imagePack, tilesNeeded)
+
+    coercedShape = tf.shape(coercedPack)
+    s = coercedShape[0]
+    h = coercedShape[1]
+    w = coercedShape[2]
+    c = coercedShape[3]
+
+    reshaped1 = tf.reshape(coercedPack, [s*h, w, c])
+    #print("reshpaed is {0}".format(reshaped1))
+    return tf.concat(tf.split(reshaped1, tilesCountInSide,axis=0),1)
+
 def isup_to_smoothed_labels(label):
     label = tf.cast(label, dtype=tf.int32)
     # label smothing that accounts for order
@@ -121,11 +136,11 @@ def coerceSeqSize(imagePack, trainSequenceLength):
   seqRepCount = tf.cast(tf.math.ceil(trainSequenceLength / T), tf.int32)
   notTooShortIndicies = \
     tf.cond(seqRepCount > 1, \
-        lambda : tf.tile(tf.random.shuffle(availableIndices), [seqRepCount]), \
+        lambda : tf.tile(availableIndices, [seqRepCount]), \
         lambda : availableIndices)
   
   # if T is greater than trainSequenceLength we need to truncate it
-  notTooLongIndices = tf.random.shuffle(notTooShortIndicies)[0:trainSequenceLength]
+  notTooLongIndices = notTooShortIndicies[0:trainSequenceLength]
   #notTooLong = tf.IndexedSlices(imagePack,notTooLongIndices, dense_shape = outputShape)
   notTooLong = tf.gather(imagePack, notTooLongIndices)
   shapeSet = tf.reshape(notTooLong,outputShape)

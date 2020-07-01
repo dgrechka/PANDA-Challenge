@@ -115,6 +115,8 @@ for trFilename in trFilenames:
     fullPath = os.path.join(cytoImagePath,trFilename)
     label = labelsDict[imIdent]
     if imIdent in trIdents:
+        if rotIdx != 0:
+            continue
         trTfRecordFileNames.append(fullPath)
         trLabels.append(label)
     elif imIdent in vaIdents:
@@ -138,19 +140,19 @@ trImagesDs = tfdp.getTfRecordDataset(trTfRecordFileNames) \
 trLabelsDs = tf.data.Dataset.from_tensor_slices(trLabels)
 
 def trImageTransform(imagePack):
-    return tfdp.augment(
-                tfdp.coerceSeqSize(imagePack, \
-                    trainSequenceLength))
+    return tfdp.augment(tfdp.coerceSeqSize(imagePack,trainSequenceLength))
 
 def vaImageTransofrm(imagePack):
-    return tfdp.coerceSeqSize(imagePack, \
-                    trainSequenceLength)
+    return tfdp.coerceSeqSize(imagePack,trainSequenceLength)                    
+
 
 def trImageTransformWithLabel(im, lab):
-    return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
+    #return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
+    return trImageTransform(im), lab
 
 def vaImageTransofrmWithLabel(im, lab):
-    return (vaImageTransofrm(im),tfdp.isup_to_smoothed_labels(lab))
+    #return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
+    return trImageTransform(im), lab
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
     .map(trImageTransformWithLabel, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
@@ -219,12 +221,12 @@ print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=True)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1, verbose =1,
-                                patience=int(2), min_lr=1e-7)
+                                patience=int(3), min_lr=1e-7)
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(3), monitor='val_loss',mode='min'),
+    tf.keras.callbacks.EarlyStopping(patience=int(4), monitor='val_loss',mode='min'),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
@@ -241,19 +243,19 @@ callbacks = [
     reduce_lr
   ]
 
-# loss = tf.keras.losses.LogCosh(
-#     #reduction=losses_utils.ReductionV2.AUTO,
-#     name='logcosh'
-# )
+loss = tf.keras.losses.LogCosh(
+    #reduction=losses_utils.ReductionV2.AUTO,
+    name='logcosh'
+)
 
-loss = tf.keras.losses.CategoricalCrossentropy(from_logits=True)
+#loss = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
           optimizer=tf.keras.optimizers.RMSprop(learning_rate=1e-4, clipnorm=1.),
           #optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
           loss=loss,
-          metrics=[QuadraticWeightedKappa(input_format='prob_vector')] # tf.keras.metrics.MeanAbsoluteError(name="mae")
+          metrics=[QuadraticWeightedKappa(input_format='scalar'), tf.keras.metrics.MeanAbsoluteError(name="mae")] # tf.keras.metrics.MeanAbsoluteError(name="mae")
           )
 print("model compiled")
 print(model.summary())
