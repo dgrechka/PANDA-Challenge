@@ -63,11 +63,10 @@ imagesDs = tfdp.getTfRecordDataset(tfrFullFilenames) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
-model = constructModel(sequenceLength, DORate=0.3, l2regAlpha = 0.0)
+model,backbone = constructModel(sequenceLength, DORate=0.3, l2regAlpha = 0.0)
 print("model constructed")
 
-for i in range(len(model.layers)):
-  model.layers[i].trainable = True
+backbone.trainable = False
 
 if os.path.exists(checkpointPath):
   print("Loading pretrained weights {0}".format(checkpointPath))
