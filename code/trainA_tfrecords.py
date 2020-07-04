@@ -227,7 +227,7 @@ print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
-                                patience=int(8), min_lr=1e-7, mode='max')
+                                patience=int(8), min_lr=1e-6, mode='max')
 
 
 callbacks = [

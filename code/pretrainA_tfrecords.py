@@ -227,7 +227,7 @@ reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.1,
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(4), monitor='val_loss',mode='min'),
+    tf.keras.callbacks.EarlyStopping(patience=int(5), monitor='val_loss',mode='min'),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=experiment_output_dir, histogram_freq = 0, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(

@@ -24,7 +24,7 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
     cnnPooledReshapedDO = tf.keras.layers.Dropout(rate=DORate, name='cnnsPooledReshapedDO')(
         cnnPooledReshaped)  # Tx1024
     perSliceDenseOut = tf.keras.layers.TimeDistributed(
-        tf.keras.layers.Dense(128,
+        tf.keras.layers.Dense(192,
         activation="selu",
         kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)), name='perSliceDenseOut')(
         cnnPooledReshapedDO)  # 128.   1024*128  parameters
@@ -40,7 +40,7 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
 
     rnnOut = \
         tf.keras.layers.GRU(
-            32, dropout=DORate,
+            64, dropout=DORate,
             kernel_regularizer = tf.keras.regularizers.L1L2(l2=l2regAlpha),
             recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha))(perSliceDenseOutDO)
     rnnOutDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(rnnOut)

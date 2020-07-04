@@ -223,7 +223,7 @@ if os.path.exists(checkpointPath):
 else:
   print("Starting learning from scratch")
 
-backbone.trainable = False
+#backbone.trainable = False
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),

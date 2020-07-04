@@ -213,8 +213,8 @@ if __name__ == '__main__':
     #     .map(ExtractPackSize)
     print("Starting {0} conversion tasks".format(len(tasks)))
 
-    tilesCounts = p.map(ProcessGenerateRecordTask,tasks)
-    #tilesCounts = [ProcessGenerateRecordTask(x) for x in tasks] # single threaded debugging
+    #tilesCounts = p.map(ProcessGenerateRecordTask,tasks)
+    tilesCounts = [ProcessGenerateRecordTask(x) for x in tasks] # single threaded debugging
     # print("Analyzing tile count frequencies")
 
     # tilesCounts = tilesCounts.extend(existingTilesCounts)

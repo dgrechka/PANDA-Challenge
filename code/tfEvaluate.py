@@ -24,7 +24,7 @@ outputPath = sys.argv[3]
 outputConfusionPath = sys.argv[4]
 sequenceLength = int(sys.argv[5])
 prefetchSize = multiprocessing.cpu_count() + 1
-batchSize = 4
+batchSize = 64
 truncateSize = 5000000 # usefull to debugging    
 print("Processing no more than {0} samples".format(truncateSize))
 

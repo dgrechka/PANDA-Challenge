@@ -32,7 +32,23 @@ trFilenames = [fname for fname in trFilenames if fname.endswith(".tfrecords")]
 trFilenames = [fname for fname in trFilenames if fname[33:-10]=="0"] # only tiles without rotations
 fullTrFilenames = [os.path.join(cytoImagePath,fname) for fname in trFilenames]
 fullOutFilenames = ["{0}.jpeg".format(os.path.join(outPath,fname[0:-10])) for fname in trFilenames]
-print("Found {0} tfrecords files in source dir".format(len(fullTrFilenames)))
+
+initiallyFound = len(fullTrFilenames)
+
+print("Found {0} tfrecords files in source dir".format(initiallyFound))
+
+toProcessIn = []
+toProcessOut = []
+for i in range(0,len(fullTrFilenames)):
+    inFullPath = fullTrFilenames[i]
+    outFullPath = fullOutFilenames[i]
+    if not(os.path.exists(outFullPath)):
+        toProcessIn.append(inFullPath)
+        toProcessOut.append(outFullPath)
+fullTrFilenames = toProcessIn
+fullOutFilenames = toProcessOut
+toGenerateCount = len(fullTrFilenames)
+print("{0} previews already exist. {1} to generate".format(initiallyFound - toGenerateCount, toGenerateCount))
 
 truncateCount = min(truncateCount, len(trFilenames))
 
