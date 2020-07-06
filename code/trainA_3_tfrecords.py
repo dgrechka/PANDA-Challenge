@@ -187,12 +187,12 @@ print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
-                                patience=int(4), min_lr=1e-6, mode='max')
+                                patience=int(5), min_lr=1e-7, mode='max')
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(9), monitor='val_kappa',mode='max'),
+    tf.keras.callbacks.EarlyStopping(patience=int(10), monitor='val_kappa',mode='max'),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=outputPath, histogram_freq = 5, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
@@ -224,7 +224,7 @@ if os.path.exists(checkpointPath):
 else:
   print("Starting learning from scratch")
 
-#backbone.trainable = False
+backbone.trainable = False
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),

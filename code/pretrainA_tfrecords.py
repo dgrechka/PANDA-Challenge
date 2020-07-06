@@ -103,7 +103,8 @@ print("{0} QC passed images in train set, {1} QC passed images in val set".forma
 
 trFilenames = os.listdir(cytoImagePath)
 trFilenames = [fname for fname in trFilenames if fname.endswith(".tfrecords")]
-random.shuffle(trFilenames)
+rotIndices = [fname[33:-10] for fname in trFilenames] # after 32 hex and dash, befor ".tfrecords"
+trFilenames = [pair[0] for pair in sorted(zip(trFilenames,rotIndices), key= lambda pair: pair[1])]
 print("Found {0} tfrecords files in source dir".format(len(trFilenames)))
 trTfRecordFileNames = list()
 trLabels = list()
@@ -115,8 +116,6 @@ for trFilename in trFilenames:
     fullPath = os.path.join(cytoImagePath,trFilename)
     label = labelsDict[imIdent]
     if imIdent in trIdents:
-        if rotIdx != 0:
-            continue
         trTfRecordFileNames.append(fullPath)
         trLabels.append(label)
     elif imIdent in vaIdents:
