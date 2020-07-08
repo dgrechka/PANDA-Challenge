@@ -20,24 +20,39 @@ print("TFRecords path is {0}".format(cytoImagePath))
 
 checkpointPath = sys.argv[1]
 labelsPath = sys.argv[2]
-outputPath = sys.argv[3]
-outputConfusionPath = sys.argv[4]
-sequenceLength = int(sys.argv[5])
+singleImagePerClusterPath = sys.argv[3]
+valRowsPath = sys.argv[4]
+outputPath = sys.argv[5]
+outputConfusionPath = sys.argv[6]
+sequenceLength = int(sys.argv[7])
 prefetchSize = multiprocessing.cpu_count() + 1
-batchSize = 64
-truncateSize = 5000000 # usefull to debugging    
+batchSize = 4
+truncateSize = 10000000 # usefull to debugging    
 print("Processing no more than {0} samples".format(truncateSize))
+
+clusterDf = pd.read_csv(singleImagePerClusterPath, engine='python')
+valIdxDf = pd.read_csv(valRowsPath, engine='python')
+valIdx = valIdxDf.iloc[:,0]
+vaClusterDf  = clusterDf.iloc[list(valIdx),:]
+trClusterDf = clusterDf[~clusterDf.index.isin(vaClusterDf.index)]
+
+vaClusters = set(vaClusterDf.iloc[:,1]) # image_cluster_id
+trClusterS = set(trClusterDf.iloc[:,1])
+print("{0} image clusters in train set, {1} image clusters in val set".format(len(trClusterS),len(vaClusters)))
 
 print("Labels file {0}".format(labelsPath))
 labelsDf = pd.read_csv(labelsPath, engine='python')
 isupMap = dict()
 gleasonMap = dict()
 sourceMap = dict()
+isValidationMap = dict()
 for row in labelsDf.itertuples():
     image_id = row.image_id
+    isValidation = row.image_cluster_id in vaClusters
     isupMap[image_id] = int(row.isup_grade)
     gleasonMap[image_id] = row.gleason_score
     sourceMap[image_id] = row.data_provider
+    isValidationMap[image_id] = isValidation
 print("Labels loaded")
 
 
@@ -86,6 +101,7 @@ isupList = []
 providerList = []
 gleasonList = []
 isupDiffList = []
+isValidationList = []
 isupAbsDiffList = []
 
 i = 0
@@ -94,6 +110,8 @@ for image_id in tfrFilenameBases:
     isupList.append(isup_truth)
     providerList.append(sourceMap[image_id])
     gleasonList.append(gleasonMap[image_id])
+    isValidationList.append(isValidationMap[image_id])
+
 
     isup_diff = predictedList[i] - isup_truth
 
@@ -112,7 +130,8 @@ resDf = pd.DataFrame.from_dict(
         'isup_abs_diff': isupAbsDiffList,
         'isup_diff': isupDiffList,
         'provider': providerList,
-        'gleason_score': gleasonList
+        'gleason_score': gleasonList,
+        'is_validation': isValidationList
     }
 )
 

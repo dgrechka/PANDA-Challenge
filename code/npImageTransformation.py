@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 import math
 
-def TrimBlackPaddings(image):
+def GetNonBlackArea(image):
     rowsAggregated = np.amax(image,axis=(0,2))
     rowIndices = np.where(rowsAggregated != 0)[0]
     if len(rowIndices) == 0:
@@ -17,6 +17,13 @@ def TrimBlackPaddings(image):
         return image # entire black image
 
     firstCol, lastCol = colIndices[0], colIndices[-1]
+    return firstCol, firstRow, lastCol, lastRow
+
+def TrimBlackPaddings(image, precomputedBounds = None):
+    if precomputedBounds is None:
+        firstCol, firstRow, lastCol, lastRow = GetNonBlackArea(image)
+    else:
+        firstCol, firstRow, lastCol, lastRow = precomputedBounds
 
     return image[firstCol:(lastCol+1), firstRow:(lastRow+1), :]
 

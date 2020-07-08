@@ -8,7 +8,7 @@ import threading
 import multiprocessing
 import random
 import math
-import matplotlib.pyplot as plt # for debugging previews only
+import json
 from libExtractTile import getNotEmptyTiles
 from tfQuadraticWeightedKappa import QuadraticWeightedKappa
 import tfDataProcessing as tfdp
@@ -33,14 +33,28 @@ labelsPath = sys.argv[1]
 singleImagePerClusterPath = sys.argv[2]
 valRowsPath = sys.argv[3]
 checkpointPath = sys.argv[4]
-outputPath = sys.argv[5]
-trainSequenceLength = int(sys.argv[6])
+trainConfigPath = sys.argv[5]
+outputPath = sys.argv[6]
 
-batchSize = 2
-shuffleBufferSize = 512
+with open(trainConfigPath) as json_file:
+    trainConfig= json.load(json_file)
+    print("Loaded train configuration from {0}".format(trainConfig))
+
+trainSequenceLength = int(trainConfig['trainSequenceLength'])
+
+batchSize = int(trainConfig['batchSize'])
+shuffleBufferSize = int(trainConfig['shuffleBufferSize'])
 prefetchSize = multiprocessing.cpu_count() + 1
-seed = 36543452
-epochsToTrain = 160
+seed = int(trainConfig['seed'])
+DORate = trainConfig['DOrate']
+l2regAlpha = trainConfig['l2regAlpha']
+monitoredMetric = trainConfig['monitoredMetric']
+monitoredMode = trainConfig['monitoredMode']
+minAllowedLR = trainConfig['minAllowedLR']
+reduceLrPatience = int(trainConfig['reduceLrPatience'])
+earlyStoppingPatience = int(trainConfig['earlyStoppingPatience'])
+
+epochsToTrain = 1000
 random.seed(seed)
 tf.random.set_seed(seed+151)
 
@@ -177,73 +191,32 @@ valDs = tf.data.Dataset.zip((valImagesDs,valLabelsDs)) \
     .batch(batchSize, drop_remainder=False) \
     .prefetch(prefetchSize)
 
-def previewSample(dsElem):
-    imagePack,label = dsElem
-    N,_,_,_ = imagePack.shape
-    print("Pack size is {0}".format(N))
-    #print(imagePack)
-    cols = round(math.sqrt(N))
-    rows = math.ceil(N/cols)
-
-    plt.figure()
-    plt.title("tile [0]")    
-    plt.imshow(imagePack[0] / 255.0)
-
-
-    plt.figure()
-    plt.title("tile [1]")    
-    plt.imshow(imagePack[1] / 255.0)
-
-
-    fig, ax = plt.subplots(rows,cols)    
-    fig.set_facecolor((0.3,0.3,0.3))
-
-    print("label is {0}".format(label))
-
-    idx = 1
-    for row in range(0,rows):
-        for col in range(0,cols):            
-            row = (idx - 1) // cols
-            col = (idx -1) % cols
-            #ax[row,col].set_title("tile [{0},{1}]".format(tile_r,tile_c))    
-            
-            ax[row,col].axis('off')
-            if idx-1 < N:
-                im = np.squeeze(imagePack[idx-1,:,:,:])
-                im = im / 255.0 
-                # as data contains float range 0.0 - 255.-
-                # to make imshow work properly we need to map into interval 0.0 - 1.0
-                ax[row,col].imshow(im) 
-            idx = idx + 1
-    plt.show()  # display it
-
 #testData = list(trDs.take(1).repeat(2).as_numpy_iterator())
 #previewSample(testData[0])
 #previewSample(testData[1])
 #exit(1)
 
-model, backbone = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
-backbone.trainable = False
+model, backbone = constructModel(trainSequenceLength, DORate=DORate, l2regAlpha = l2regAlpha)
 print("model constructed")
 
 csv_logger = tf.keras.callbacks.CSVLogger(os.path.join(outputPath,'training_log.csv'), append=False)
-reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_kappa', factor=0.1, verbose =1,
-                                patience=int(8), min_lr=1e-6, mode='max')
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor=monitoredMetric, factor=0.1, verbose =1,
+                                patience=reduceLrPatience, min_lr=minAllowedLR, mode=monitoredMode)
 
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=int(17), monitor='val_kappa',mode='max'),
+    tf.keras.callbacks.EarlyStopping(patience=earlyStoppingPatience, monitor=monitoredMetric,mode=monitoredMode),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=outputPath, histogram_freq = 5, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
             filepath=os.path.join(outputPath,"weights.hdf5"),
             save_best_only=True,
             verbose=True,
-            mode='max',
+            mode=monitoredMode,
             save_weights_only=True,
             #monitor='val_root_recall'
-            monitor='val_kappa' # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
+            monitor=monitoredMetric # as we pretrain later layers, we do not care about overfitting. thus loss instead of val_los
             ),
     tf.keras.callbacks.TerminateOnNaN(),
     csv_logger,
@@ -259,14 +232,22 @@ loss = tf.keras.losses.LogCosh(
 
 
 if os.path.exists(checkpointPath):
+  if trainConfig['checkpointBackboneFrozen']:
+      backbone.trainable = False
+  else:
+      backbone.trainable = True
   print("Loading pretrained weights {0}".format(checkpointPath))
   model.load_weights(checkpointPath, by_name=True)
   print("Loaded pretrained weights {0}".format(checkpointPath))
 else:
   print("Starting learning from scratch")
 
-
-backbone.trainable = True
+if trainConfig['freezeBackbone']:
+    print("Backbone is FROZEN")
+    backbone.trainable = False
+else:
+    print("Backbone is TRAINABLE")
+    backbone.trainable = True
 
 model.compile(
           #optimizer=tf.keras.optimizers.SGD(momentum=.5,nesterov=True, clipnorm=1.),
