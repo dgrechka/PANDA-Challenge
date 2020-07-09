@@ -45,7 +45,7 @@ class QuadraticWeightedKappa(tf.keras.metrics.Metric):
         y_pred = tf.reshape(y_pred, [-1])
 
 
-        y_true_int = tf.cast(tf.math.round(y_true), dtype=tf.int64)
+        y_true_int = tf.cast(tf.math.floor(y_true), dtype=tf.int64)
         y_pred_int = tf.cast(tf.math.round(y_pred), dtype=tf.int64)
 
         confM = tf.math.confusion_matrix(y_true_int, y_pred_int, dtype=tf.int64, num_classes=self.M)

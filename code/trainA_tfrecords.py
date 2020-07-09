@@ -167,13 +167,23 @@ def trImageTransform(imagePack):
 def vaImageTransofrm(imagePack):
     return tfdp.coerceSeqSize(imagePack,trainSequenceLength)                    
 
+def tuneLabel(label):
+    def f0(): return tf.constant(0.0, dtype=tf.float16)
+    def f1(): return tf.constant(1.0, dtype=tf.float16)
+    def f2(): return tf.constant(2.0, dtype=tf.float16)
+    def f3(): return tf.constant(3.0, dtype=tf.float16)
+    def f4(): return tf.constant(4.0, dtype=tf.float16)
+    def f5(): return tf.constant(5.5, dtype=tf.float16)
+    return tf.switch_case(tf.cast(label,dtype=tf.int32), branch_fns=[f0, f1, f2, f3, f4, f5])
+
+
 def trImageTransformWithLabel(im, lab):
     #return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
-    return trImageTransform(im), lab
+    return trImageTransform(im), tuneLabel(lab)
 
 def vaImageTransofrmWithLabel(im, lab):
     #return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
-    return trImageTransform(im), lab
+    return trImageTransform(im), tuneLabel(lab)
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
     .map(trImageTransformWithLabel, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
