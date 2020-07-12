@@ -1,3 +1,4 @@
+import time
 import numpy as np
 import pandas as pd
 import multiprocessing
@@ -7,22 +8,28 @@ import os
 from skimage import io
 import cv2
 
+isTestSetRun = False
 input_dir = '/mnt/ML/Panda/officialData/train_images/'
-checkpoint_path = 'experiments/dgrechka/35c_bak/train2/fold_3/weights.hdf5'
+checkpoint_path = 'experiments/dgrechka/35c/train2/fold_1/weights.hdf5'
 out_file = 'submission.csv'
 backboneFrozen = True
-batchSize = 2
+batchSize = 4
 trainSequenceLength = 64
-initial_downscale_factor = 4
 tileSizeSetting = 1024
 outImageSize = 224
 prefetchSize = multiprocessing.cpu_count() + 1
 DORate = 0.3
 
+
+cpuCores = multiprocessing.cpu_count()
+print("Detected {0} CPU cores".format(cpuCores))
+
 inputFiles = os.listdir(input_dir)
 inputIdents = [x[0:-5] for x in inputFiles if x.endswith(".tiff")]
 
-inputIdents = inputIdents[0:23]
+if not isTestSetRun:
+    inputIdents.sort()
+    inputIdents = inputIdents[0:100]
 
 imageCount = len(inputIdents)
 print("Found {0} files for inference".format(imageCount))
@@ -232,16 +239,30 @@ def GCNtoRGB_uint8(gcnImage, cutoffSigmasRange = 3.0):
     return np.round(np.minimum(np.maximum(rescaled,0.0),255.0)).astype(np.uint8)
 
 def getTiles(filename, rotDegree):
-    im = 255 - io.imread(filename,plugin="tifffile")
+    t1 = time.time()
+    #im = 255 - io.imread(filename,plugin="tifffile")
+    multiimage = io.MultiImage(filename)
+    #print("multiimage of {0} elements".format(len(multiimage)))
+    #for i in range(0,len(multiimage)):
+    #    print("level {0}, shape {1}".format(i,multiimage[i].shape))
+    im = 255 - multiimage[1]
+    t2 = time.time()
+    print("tiff decoding took {0:.3f} sec".format(t2-t1))
+    t1 = t2
     h,w,_ = im.shape
-    im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
-    tileSize = tileSizeSetting // initial_downscale_factor
+    #im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
+    tileSize = tileSizeSetting // 4
 
     if rotDegree != 0.0:
-            rotated = RotateWithoutCrop(im, rotDegree)
+        rotated = RotateWithoutCrop(im, rotDegree)
     else:
         rotated = im
     _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=None, emptyCutOffMaxThreshold=10)
+
+    t2 = time.time()
+    print("non empty tile extraction took {0:.3f} sec".format(t2-t1))
+    t1 = t2
+    
 
     if len(tiles) > trainSequenceLength:
         tiles = tiles[0:trainSequenceLength]
@@ -263,6 +284,11 @@ def getTiles(filename, rotDegree):
         else:
             print("WARN: omited non-green tiles filtering, as the filtering impose the empty tile set")
 
+        t2 = time.time()
+        print("red filtering took {0:.3f} sec".format(t2-t1))
+        t1 = t2
+    
+
         # normalizing with contrasts
         contrasts = []
         means = []
@@ -280,11 +306,21 @@ def getTiles(filename, rotDegree):
                 for j in range(0,len(tiles)):
                     tiles[j] = GCNtoRGB_uint8(GCN(tiles[j], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=2.0)
     
+    t2 = time.time()
+    print("GCN took {0:.3f} sec".format(t2-t1))
+    t1 = t2
+    
+
     if outImageSize != tileSize:
         resizedTiles = []
         for tile in tiles:
             resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
         tiles = resizedTiles
+
+    t2 = time.time()
+    print("resize took {0:.3f} sec".format(t2-t1))
+    t1 = t2
+    
     return tiles
 
 def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
@@ -429,13 +465,18 @@ def predict(checkpointPath, rotDegree):
     #print("filenameDs:")
     #print(filenameDs)
 
+    #tf.data.experimental.AUTOTUNE
+
     imagesDs = filenameDs \
-        .map(process, num_parallel_calls=tf.data.experimental.AUTOTUNE) \
+        .map(process, num_parallel_calls=1) \
         .batch(batchSize, drop_remainder=False) \
         .prefetch(prefetchSize)
 
-    predicted = np.squeeze(model.predict(imagesDs,verbose=1))
+    t1 = time.time()
+    predicted = np.round(np.squeeze(model.predict(imagesDs,verbose=1))).astype(np.int32)
+    t2 = time.time()
     print("predicted shape is {0}".format(predicted.shape))
+    print("predicted {0} samples in {1} sec. {2} sec per sample".format(imageCount,t2-t1,(t2-t1)/imageCount))
     return predicted
 
 predicted = predict(checkpoint_path, 0.0)

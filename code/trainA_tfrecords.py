@@ -34,7 +34,9 @@ singleImagePerClusterPath = sys.argv[2]
 valRowsPath = sys.argv[3]
 checkpointPath = sys.argv[4]
 trainConfigPath = sys.argv[5]
-outputPath = sys.argv[6]
+hardSamplesPath = sys.argv[6]
+outputPath = sys.argv[7]
+
 
 with open(trainConfigPath) as json_file:
     trainConfig= json.load(json_file)
@@ -61,7 +63,15 @@ tf.random.set_seed(seed+151)
 #gpu = tf.config.experimental.list_physical_devices('GPU')
 #tf.config.experimental.set_memory_growth(gpu[0], True)
 
-def RemoveInvalidLabels(dataFrame):
+hardSamples = set()
+if os.path.exists(hardSamplesPath):
+    hardSamplesDf = pd.read_csv(hardSamplesPath, engine='python')
+    hardSamples = set(hardSamplesDf.iloc[:,0])
+    print("Loaded {0} hard samples (will be ignored from train set)".format(len(hardSamples)))
+else:
+    print("Considering no hard samples")
+
+def RemoveInvalidSamples(dataFrame, excludeHard = False):
     print("{0} images before removing absent".format(len(dataFrame)))
     
     dfIdents = list(dataFrame['image_id'])
@@ -70,6 +80,9 @@ def RemoveInvalidLabels(dataFrame):
         doSkip = False
         if ident == "b0a92a74cb53899311acc30b7405e101":
             doSkip = True # wierd labeld image
+        if excludeHard:
+            if ident in hardSamples:
+                doSkip = True
         # if not os.path.exists(os.path.join(cytoImagePath,"{0}.tfrecords".format(ident))):
         #     print("Tiles for {0} are missing. Skipping this image".format(ident))
         #     doSkip = True
@@ -78,9 +91,9 @@ def RemoveInvalidLabels(dataFrame):
     print("{0} images after removing absent".format(len(filteredDf)))
     return filteredDf
 
-
 clusterDf = pd.read_csv(singleImagePerClusterPath, engine='python')
 labelsDf = pd.read_csv(labelsPath, engine='python')
+
 
 valIdxDf = pd.read_csv(valRowsPath, engine='python')
 valIdx = valIdxDf.iloc[:,0]
@@ -107,8 +120,8 @@ trLabelsDf = labelsDf[~labelsDf.index.isin(vaLabelsDf.index)]
 
 print("{0} images in train set, {1} images in val set".format(len(trLabelsDf),len(vaLabelsDf)))
 
-vaLabelsDf = RemoveInvalidLabels(vaLabelsDf)
-trLabelsDf = RemoveInvalidLabels(trLabelsDf)
+vaLabelsDf = RemoveInvalidSamples(vaLabelsDf, excludeHard=True)
+trLabelsDf = RemoveInvalidSamples(trLabelsDf, excludeHard=True)
 
 # debug run of srinked DS
 #trLabelsDf = trLabelsDf.iloc[0:500,]
@@ -146,8 +159,8 @@ for trFilename in trFilenames:
             continue
         vaTfRecordFileNames.append(fullPath)
         vaLabels.append(label)
-    else:
-        print("WARN: ident {0} is nither in training nor in validation set".format(imIdent))
+    #else:
+        #print("WARN: ident {0} is nither in training nor in validation set".format(imIdent))
 
 trSamplesCount = len(trTfRecordFileNames)
 vaSamplesCount = len(vaTfRecordFileNames)
@@ -179,11 +192,11 @@ def tuneLabel(label):
 
 def trImageTransformWithLabel(im, lab):
     #return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
-    return trImageTransform(im), tuneLabel(lab)
+    return trImageTransform(im), lab
 
 def vaImageTransofrmWithLabel(im, lab):
     #return trImageTransform(im), tfdp.isup_to_smoothed_labels(lab)
-    return trImageTransform(im), tuneLabel(lab)
+    return trImageTransform(im), lab
 
 trDs = tf.data.Dataset.zip((trImagesDs,trLabelsDs)) \
     .map(trImageTransformWithLabel, num_parallel_calls=tf.data.experimental.AUTOTUNE) \

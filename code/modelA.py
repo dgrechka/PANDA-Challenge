@@ -30,6 +30,13 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
         cnnPooledReshapedDO)  # 128.   1024*128  parameters
     perSliceDenseOutDO = tf.keras.layers.Dropout(rate=DORate, name='perSliceDenseOutDO')(
         perSliceDenseOut)
+    perSliceDenseOut2 = tf.keras.layers.TimeDistributed(
+        tf.keras.layers.Dense(96,
+        activation="selu",
+        kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)), name='perSliceDenseOut2')(
+        perSliceDenseOutDO)  # 128.   1024*128  parameters
+    perSliceDenseOutDO2 = tf.keras.layers.Dropout(rate=DORate, name='perSliceDenseOutDO2')(
+        perSliceDenseOut2)
     #gru1 = tf.keras.layers.GRU(128, return_sequences=True)
     #gru1back = tf.keras.layers.GRU(128, return_sequences=True, go_backwards=True)
     #gru1out = tf.keras.layers.Bidirectional(gru1, backward_layer=gru1back, name='rnn1')(perSliceDenseOutDO)
@@ -42,8 +49,15 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
         tf.keras.layers.GRU(
             64, dropout=DORate,
             kernel_regularizer = tf.keras.regularizers.L1L2(l2=l2regAlpha),
-            recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha))(perSliceDenseOutDO)
-    rnnOutDO = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(rnnOut)
+            recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha),
+            return_sequences=True)(perSliceDenseOutDO2)
+    rnnOutDO = tf.keras.layers.Dropout(rate=DORate,name='rnnDO')(rnnOut)
+    rnnOut2 = \
+        tf.keras.layers.GRU(
+            48, dropout=DORate,
+            kernel_regularizer = tf.keras.regularizers.L1L2(l2=l2regAlpha),
+            recurrent_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha))(rnnOutDO)
+    rnnOutDO2 = tf.keras.layers.Dropout(rate=DORate,name='rnn2DO')(rnnOut2)
     # predOut = \
     #     tf.keras.layers.Dense(6,name="resLogits",activation="linear",
     #     kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)
@@ -51,9 +65,9 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
     predOut = \
         tf.keras.layers.Dense(1,name="unitRes",activation="sigmoid",
         kernel_regularizer=tf.keras.regularizers.L1L2(l2=l2regAlpha)
-        )(rnnOutDO)
+        )(rnnOutDO2)
     predOutScaled = \
-        tf.keras.layers.Lambda(lambda x: x*5.5, name="scaledRes")(predOut)
+        tf.keras.layers.Lambda(lambda x: x*5.0, name="scaledRes")(predOut)
 
 
     return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOutScaled), denseNet

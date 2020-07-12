@@ -45,14 +45,17 @@ def ProcessGenerateRecordTask(task):
     #print("processing {0}".format(ident))
     #print("reading image from disk {0}".format(ident))
     
-    im = 255 - io.imread(tiffPath,plugin="tifffile")
+    #im = 255 - io.imread(filename,plugin="tifffile")
+    multiimage = io.MultiImage(tiffPath)
+    #print("multiimage of {0} elements".format(len(multiimage)))
+    #for i in range(0,len(multiimage)):
+    #    print("level {0}, shape {1}".format(i,multiimage[i].shape))
+    im = 255 - multiimage[1]
     
-    # initial downscaling (to speed up)
-    initial_downscale_factor = task['initial_downscale_factor']
     h,w,_ = im.shape
     #print("initial downscale")
-    im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
-    tileSize = tileSize // initial_downscale_factor
+    #im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
+    tileSize = tileSize // 4
 
     M = rotationStepsCount
     rotStep = 360.0 / M
@@ -164,8 +167,8 @@ if __name__ == '__main__':
     
     print("Detected {0} CPU cores".format(M))
     #M = 1
-    #M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
-    M = 2
+    M //= 2 # opencv uses multithreading somehow. So we use less workers that CPU cores available
+    #M = 2
 
     p = multiprocessing.Pool(M)
     print("Created process pool of {0} workers".format(M))
@@ -213,8 +216,8 @@ if __name__ == '__main__':
     #     .map(ExtractPackSize)
     print("Starting {0} conversion tasks".format(len(tasks)))
 
-    #tilesCounts = p.map(ProcessGenerateRecordTask,tasks)
-    tilesCounts = [ProcessGenerateRecordTask(x) for x in tasks] # single threaded debugging
+    tilesCounts = p.map(ProcessGenerateRecordTask,tasks)
+    #tilesCounts = [ProcessGenerateRecordTask(x) for x in tasks] # single threaded debugging
     # print("Analyzing tile count frequencies")
 
     # tilesCounts = tilesCounts.extend(existingTilesCounts)
