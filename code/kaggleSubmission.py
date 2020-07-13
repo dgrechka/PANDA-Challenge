@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import multiprocessing
 import tensorflow as tf
+import tensorflow_io as tfio
 import math
 import os
 from skimage import io
@@ -239,14 +240,10 @@ def GCNtoRGB_uint8(gcnImage, cutoffSigmasRange = 3.0):
     rescaled = (gcnImage + cutoffSigmasRange)/(2.0 * cutoffSigmasRange) * 255.0
     return np.round(np.minimum(np.maximum(rescaled,0.0),255.0)).astype(np.uint8)
 
-def getTiles(filename, rotDegree):
-    #im = 255 - io.imread(filename,plugin="tifffile")
-    multiimage = io.MultiImage(filename)
-    #print("multiimage of {0} elements".format(len(multiimage)))
-    #for i in range(0,len(multiimage)):
-    #    print("level {0}, shape {1}".format(i,multiimage[i].shape))
-    im = 255 - multiimage[1]
-    print
+def getTiles(im, rotDegree):
+    #print("image shape is {0}".format(im.shape))
+    #   maxElem = np.nanmax(im)
+    #print("max elem is {0}".format(maxElem))
     h,w,_ = im.shape
     #im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
     tileSize = tileSizeSetting // 4
@@ -428,17 +425,23 @@ def predict(checkpointPath, rotDegree):
         print("Pretrained weights file does not exist: {0}".format(checkpointPath))
         exit(1)
 
-    def loadAsTilePackTf(pathTensor):
-        def loadAsTilePack(path):
-            path = path.numpy().decode("utf-8")
-            tiles = getTiles(path, rotDegree)
+    def loadAsTilePackTf(imageTensor):
+        #autographDisabledGetTiles = tf.autograph.experimental.do_not_convert(getTiles)
+        def loadAsTilePack(image : tf.Tensor):
+            tiles = getTiles(image.numpy(), rotDegree)
             return len(tiles),tf.cast(tf.stack(tiles),tf.uint8)
-        tensorLen,tensorPack = tf.py_function(loadAsTilePack, [pathTensor], Tout=(tf.int32,tf.uint8))
+        tensorLen,tensorPack = tf.py_function(loadAsTilePack, [imageTensor], Tout=(tf.int32,tf.uint8))
         return tf.reshape(tensorPack,[tensorLen, outImageSize, outImageSize, 3])
 
+    def process1(filename):
+        imageBytes = tf.io.read_file(filename)
+        decodedImage = 255 - tfio.experimental.image.decode_tiff(imageBytes,index=1)[:,:,0:3]
+        return decodedImage
 
-    def process(filename):
-        return augment(coerceSeqSize(loadAsTilePackTf(filename),trainSequenceLength))
+    def process2(image):
+        #decodedImageFloat = tf.cast(decodedImage,tf.float32)
+        # A Tensor of type uint8 and shape of [height, width, 4] (RGBA). 
+        return augment(coerceSeqSize(loadAsTilePackTf(image),trainSequenceLength))
 
     #print("filenameDs:")
     #print(filenameDs)
@@ -446,7 +449,8 @@ def predict(checkpointPath, rotDegree):
     #tf.data.experimental.AUTOTUNE
 
     imagesDs = filenameDs \
-        .map(process, num_parallel_calls=cpuCores * 2) \
+        .map(process1,deterministic=True) \
+        .map(process2, num_parallel_calls=cpuCores * 2, deterministic=True) \
         .batch(batchSize, drop_remainder=False) \
         .prefetch(prefetchSize)
 
