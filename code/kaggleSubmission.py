@@ -29,11 +29,12 @@ inputIdents = [x[0:-5] for x in inputFiles if x.endswith(".tiff")]
 
 if not isTestSetRun:
     inputIdents.sort()
-    inputIdents = inputIdents[0:100]
+    inputIdents = inputIdents[0:128]
 
 imageCount = len(inputIdents)
 print("Found {0} files for inference".format(imageCount))
 fullPaths = [os.path.join(input_dir,"{0}.tiff".format(x)) for x in inputIdents]
+
 
 def GetNonBlackArea(image):
     rowsAggregated = np.amax(image,axis=(0,2))
@@ -239,16 +240,13 @@ def GCNtoRGB_uint8(gcnImage, cutoffSigmasRange = 3.0):
     return np.round(np.minimum(np.maximum(rescaled,0.0),255.0)).astype(np.uint8)
 
 def getTiles(filename, rotDegree):
-    t1 = time.time()
     #im = 255 - io.imread(filename,plugin="tifffile")
     multiimage = io.MultiImage(filename)
     #print("multiimage of {0} elements".format(len(multiimage)))
     #for i in range(0,len(multiimage)):
     #    print("level {0}, shape {1}".format(i,multiimage[i].shape))
     im = 255 - multiimage[1]
-    t2 = time.time()
-    print("tiff decoding took {0:.3f} sec".format(t2-t1))
-    t1 = t2
+    print
     h,w,_ = im.shape
     #im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
     tileSize = tileSizeSetting // 4
@@ -258,11 +256,6 @@ def getTiles(filename, rotDegree):
     else:
         rotated = im
     _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=None, emptyCutOffMaxThreshold=10)
-
-    t2 = time.time()
-    print("non empty tile extraction took {0:.3f} sec".format(t2-t1))
-    t1 = t2
-    
 
     if len(tiles) > trainSequenceLength:
         tiles = tiles[0:trainSequenceLength]
@@ -284,11 +277,6 @@ def getTiles(filename, rotDegree):
         else:
             print("WARN: omited non-green tiles filtering, as the filtering impose the empty tile set")
 
-        t2 = time.time()
-        print("red filtering took {0:.3f} sec".format(t2-t1))
-        t1 = t2
-    
-
         # normalizing with contrasts
         contrasts = []
         means = []
@@ -306,21 +294,11 @@ def getTiles(filename, rotDegree):
                 for j in range(0,len(tiles)):
                     tiles[j] = GCNtoRGB_uint8(GCN(tiles[j], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=2.0)
     
-    t2 = time.time()
-    print("GCN took {0:.3f} sec".format(t2-t1))
-    t1 = t2
-    
-
     if outImageSize != tileSize:
         resizedTiles = []
         for tile in tiles:
             resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
         tiles = resizedTiles
-
-    t2 = time.time()
-    print("resize took {0:.3f} sec".format(t2-t1))
-    t1 = t2
-    
     return tiles
 
 def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
@@ -468,7 +446,7 @@ def predict(checkpointPath, rotDegree):
     #tf.data.experimental.AUTOTUNE
 
     imagesDs = filenameDs \
-        .map(process, num_parallel_calls=1) \
+        .map(process, num_parallel_calls=cpuCores * 2) \
         .batch(batchSize, drop_remainder=False) \
         .prefetch(prefetchSize)
 
