@@ -20,6 +20,8 @@ print(paste0(res2File," has ",nrow(df2hard)," hard samples out of ",nrow(df2)))
 
 commonHard <- intersect(df1hard$file, df2hard$file)
 
+print(paste0("There are ",length(commonHard)," hard samples in common"))
+
 df1hardCommon <- df1hard[df1hard$file %in% commonHard,]
 df2hardCommon <- df2hard[df2hard$file %in% commonHard,]
 

@@ -3,18 +3,19 @@ import cv2
 import math
 
 def GetNonBlackArea(image):
+    shape = image.shape
     rowsAggregated = np.amax(image,axis=(0,2))
     rowIndices = np.where(rowsAggregated != 0)[0]
     if len(rowIndices) == 0:
         print("WARN: entire black image in TrimBlackPaddings")
-        return image # entire black image
+        return 0,0,shape[1],shape[0] # entire black image
     firstRow,lastRow = rowIndices[0], rowIndices[-1]
 
     colsAggregated = np.amax(image, axis=(1,2))
     colIndices = np.where(colsAggregated != 0)[0]
     if len(colIndices) == 0:
         print("WARN: entire black image in TrimBlackPaddings")
-        return image # entire black image
+        return 0,0,shape[1],shape[0] # entire black image
 
     firstCol, lastCol = colIndices[0], colIndices[-1]
     return firstCol, firstRow, lastCol, lastRow
@@ -33,7 +34,7 @@ def RotateWithoutCrop(image, angleDeg):
     #print("cropping initial")
     image = TrimBlackPaddings(image)
 
-    if abs(angleDeg) < 1e-6:
+    if abs(angleDeg) < 1e-1:
         return image
     else:
         h,w,_ = image.shape

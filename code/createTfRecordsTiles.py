@@ -52,11 +52,6 @@ def ProcessGenerateRecordTask(task):
     #    print("level {0}, shape {1}".format(i,multiimage[i].shape))
     im = 255 - multiimage[1]
     
-    h,w,_ = im.shape
-    #print("initial downscale")
-    #im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
-    tileSize = tileSize // 4
-
     M = rotationStepsCount
     rotStep = 360.0 / M
     for i in range(0,M):
@@ -64,11 +59,8 @@ def ProcessGenerateRecordTask(task):
         tfrecordsPathIdx = "{0}-{1}.tfrecords".format(tfrecordsPath[0:-10], i)
         effectiveDegree = rotStep*i
         
-        if effectiveDegree != 0.0:
-            #print("rotating to {0}".format(effectiveDegree))
-            rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
-        else:
-            rotated = im
+        rotated = npImTrans.RotateWithoutCrop(im, effectiveDegree)
+        
         #print("getting tiles")
         _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=None, emptyCutOffMaxThreshold=10)
 
@@ -161,7 +153,6 @@ if __name__ == '__main__':
     print("tile size: {0}".format(tileSize))
     print("out image size: {0}".format(outImageSize))
     print("rotation steps count: {0}".format(rotationStepsCount))
-    print("initial downscale factor: {0}".format(initial_downscale_factor))
 
     M = multiprocessing.cpu_count()
     
@@ -200,8 +191,7 @@ if __name__ == '__main__':
                 'tfrecordsPath': tfPath,
                 'tileSize': tileSize,
                 'outImageSize': outImageSize,
-                'rotationStepsCount': rotationStepsCount,
-                'initial_downscale_factor': initial_downscale_factor
+                'rotationStepsCount': rotationStepsCount
             }
             tasks.append(task)
     

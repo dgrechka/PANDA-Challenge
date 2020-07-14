@@ -28,8 +28,9 @@ print("TFRecords path is {0}".format(cytoImagePath))
 print("Generating previews for not more than {0} elements of the dataset".format(truncateCount))
 
 trFilenames = os.listdir(cytoImagePath)
+trFilenames.sort()
 trFilenames = [fname for fname in trFilenames if fname.endswith(".tfrecords")]
-trFilenames = [fname for fname in trFilenames if fname[33:-10]=="0"] # only tiles without rotations
+#trFilenames = [fname for fname in trFilenames if fname[33:-10]=="0"] # only tiles without rotations
 fullTrFilenames = [os.path.join(cytoImagePath,fname) for fname in trFilenames]
 fullOutFilenames = ["{0}.jpeg".format(os.path.join(outPath,fname[0:-10])) for fname in trFilenames]
 
@@ -53,10 +54,11 @@ print("{0} previews already exist. {1} to generate".format(initiallyFound - toGe
 truncateCount = min(truncateCount, len(trFilenames))
 
 def trImageTransform(imagePack):
-    return tfdp.bigImageFromTiles(tfdp.augment(tfdp.coerceSeqSize(imagePack,36)), 6)
+    return tfdp.bigImageFromTiles(tfdp.coerceSeqSize(imagePack,36), 6)
+    #return tfdp.bigImageFromTiles(tfdp.augment(tfdp.coerceSeqSize(imagePack,36)), 6)
 
 trImagesDs = tfdp.getTfRecordDataset(fullTrFilenames) \
-    .map(tfdp.extractTilePackFromTfRecord).map(trImageTransform).take(truncateCount)
+    .map(tfdp.extractTilePackFromTfRecord,deterministic=True).map(trImageTransform,deterministic=True).take(truncateCount)
 
 i = 0
 for sample in trImagesDs.as_numpy_iterator():
