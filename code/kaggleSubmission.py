@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import multiprocessing
 import tensorflow as tf
+import tensorflow_addons as tfa
 import math
 import os
 from skimage import io
@@ -15,11 +16,10 @@ out_file = 'submission.csv'
 backboneFrozen = True
 batchSize = 4
 trainSequenceLength = 64
-tileSizeSetting = 1024
+tileSize = 256
 outImageSize = 224
 prefetchSize = multiprocessing.cpu_count() + 1
 DORate = 0.3
-
 
 cpuCores = multiprocessing.cpu_count()
 print("Detected {0} CPU cores".format(cpuCores))
@@ -36,68 +36,45 @@ print("Found {0} files for inference".format(imageCount))
 fullPaths = [os.path.join(input_dir,"{0}.tiff".format(x)) for x in inputIdents]
 
 
-def GetNonBlackArea(image):
+def TrimBlackPaddings(image):
+    shape = image.shape
     rowsAggregated = np.amax(image,axis=(0,2))
     rowIndices = np.where(rowsAggregated != 0)[0]
     if len(rowIndices) == 0:
         print("WARN: entire black image in TrimBlackPaddings")
-        return image # entire black image
+        return 0,0,shape[1],shape[0] # entire black image
     firstRow,lastRow = rowIndices[0], rowIndices[-1]
 
     colsAggregated = np.amax(image, axis=(1,2))
     colIndices = np.where(colsAggregated != 0)[0]
     if len(colIndices) == 0:
         print("WARN: entire black image in TrimBlackPaddings")
-        return image # entire black image
+        return 0,0,shape[1],shape[0] # entire black image
 
     firstCol, lastCol = colIndices[0], colIndices[-1]
-    return firstCol, firstRow, lastCol, lastRow
-
-def TrimBlackPaddings(image, precomputedBounds = None):
-    if precomputedBounds is None:
-        firstCol, firstRow, lastCol, lastRow = GetNonBlackArea(image)
-    else:
-        firstCol, firstRow, lastCol, lastRow = precomputedBounds
-
+    
     return image[firstCol:(lastCol+1), firstRow:(lastRow+1), :]
 
-def RotateWithoutCrop(image, angleDeg):
-    angleDeg = angleDeg % 360.0
-    #print("cropping initial")
-    image = TrimBlackPaddings(image)
+@tf.function
+def EnlargeForRotation(image):
+    h,w,_ = image.shape
+    diag = math.sqrt(h*h + w*w)
+    diagInt = int(diag)
+    padH = diagInt - h
+    padW = diagInt - w
 
-    if abs(angleDeg) < 1e-6:
+    if diagInt > 32768:
+        print("WARN: image size is more than 32768 in RotateWithoutCrop. Will not rotate and return the image as is‬")
         return image
-    else:
-        h,w,_ = image.shape
-        diag = math.sqrt(h*h + w*w)
-        diagInt = int(diag)
-        padH = diagInt - h
-        padW = diagInt - w
 
-        if diagInt > 32768:
-            print("WARN: image size is more than 32768 in RotateWithoutCrop. Will not rotate and return the image as is‬")
-            return image
+    #print("padding")
+    paddedImage = np.pad(image, (
+        (padH // 2, padH // 2),
+        (padW // 2, padW // 2),
+        (0,0)))
+    return paddedImage
 
-        #print("padding")
-        paddedImage = np.pad(image, (
-            (padH // 2, padH // 2),
-            (padW // 2, padW // 2),
-            (0,0)))
-
-        paddedH, paddedW, _ = paddedImage.shape
-
-        #print("paddedH {0}; paddedW {1}; diag {2}".format(paddedH, paddedW, diagInt))
-
-        center = int(diag * 0.5)
-        #print("affine transofrming")
-        rot = cv2.getRotationMatrix2D((center,center), angleDeg, 1)
-        #print("angle {2:.2f}\t\ttarget rotation size is {0},{1}".format(paddedW, paddedH,angleDeg))
-        rotated = cv2.warpAffine(paddedImage, rot, (paddedW,paddedH))
-
-        return TrimBlackPaddings(rotated)
-
-def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCuttOffQuantile = 3/4, emptyCutOffMaxThreshold = 25):
+def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCutOffMaxThreshold = 25):
     '''Returns the list of non-empty tile indeces (tile_row_idx,tile_col_idx) and corresponding list of tile npArrays).
     Each index list element specifies the zero based index (row_idx,col_idx) of square tile which contain some data (non-empty)'''
 
@@ -133,47 +110,33 @@ def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCuttOffQ
             tile = np.pad(tile,[[0,yPad],[0,xPad],[0,0]],constant_values = 0)
         return tile
 
-    if precomputedTileIndices == None:
-        # we analyze all tiles for the content
-        for row_idx in range(0,vertTiles):
-            for col_idx in range(0,horTiles):
-                tile = extractTileData(row_idx, col_idx)
-                # if the tile contains pure white pixels (no information) we skip it (do not return)
-                #print("row {0} col {1} min_v {2}".format(row_idx,col_idx,tileMin))
-                if not(emptyCutOffMaxThreshold is None):
-                    tileMax = np.nanmax(tile)
-                    if tileMax < emptyCutOffMaxThreshold: # too black! there is no tissue areas
-                        continue
-                if not(emptyCuttOffQuantile is None):
-                    tileQuantile = np.quantile(tile, emptyCuttOffQuantile)
-                    if tileQuantile < 15: # too many black pixels portion
-                        continue
-
-                tile = coerceTileSize(tile)
-
-                indexResult.append((row_idx,col_idx))
-                dataResult.append(tile)
-                
-                tileMean = np.nanmean(tile)
-                tileIntensity.append(tileMean)
-            
-        
-        # sorting the tiles according to intensity
-        resIdx = []
-        resData = []
-        for (idxElem,dataElem,_) in sorted(zip(indexResult, dataResult, tileIntensity), key=lambda pair: -pair[2]):
-            resIdx.append(idxElem)
-            resData.append(dataElem)
-        indexResult = resIdx
-        dataResult = resData
-    else:
-        # do not analyse all possible tiles for return
-        # just return requested tiles (possibly padded)
-        for row_idx,col_idx in precomputedTileIndices:
+    # we analyze all tiles for the content
+    for row_idx in range(0,vertTiles):
+        for col_idx in range(0,horTiles):
             tile = extractTileData(row_idx, col_idx)
+            # if the tile contains pure white pixels (no information) we skip it (do not return)
+            #print("row {0} col {1} min_v {2}".format(row_idx,col_idx,tileMin))
+            
+            tileMax = np.nanmax(tile)
+            if tileMax < emptyCutOffMaxThreshold: # too black! there is no tissue areas
+                continue
+        
             tile = coerceTileSize(tile)
+
+            indexResult.append((row_idx,col_idx))
             dataResult.append(tile)
-        indexResult = precomputedTileIndices
+            
+            tileMean = np.nanmean(tile)
+            tileIntensity.append(tileMean)
+        
+    # sorting the tiles according to intensity
+    resIdx = []
+    resData = []
+    for (idxElem,dataElem,_) in sorted(zip(indexResult, dataResult, tileIntensity), key=lambda pair: -pair[2]):
+        resIdx.append(idxElem)
+        resData.append(dataElem)
+    indexResult = resIdx
+    dataResult = resData
 
     return indexResult,dataResult
 
@@ -236,26 +199,14 @@ def GCN(image,lambdaTerm = 0.0, eps=1e-8, precomputedContrast = None, precompute
 
 def GCNtoRGB_uint8(gcnImage, cutoffSigmasRange = 3.0):
     """gcnImage is considered to have 0 mean and stddev == 1.0"""
+    print("GCNtoRGB_uint8 call")
     rescaled = (gcnImage + cutoffSigmasRange)/(2.0 * cutoffSigmasRange) * 255.0
     return np.round(np.minimum(np.maximum(rescaled,0.0),255.0)).astype(np.uint8)
 
-def getTiles(filename, rotDegree):
-    #im = 255 - io.imread(filename,plugin="tifffile")
-    multiimage = io.MultiImage(filename)
-    #print("multiimage of {0} elements".format(len(multiimage)))
-    #for i in range(0,len(multiimage)):
-    #    print("level {0}, shape {1}".format(i,multiimage[i].shape))
-    im = 255 - multiimage[1]
-    print
-    h,w,_ = im.shape
-    #im = cv2.resize(im, dsize=(w // initial_downscale_factor, h // initial_downscale_factor), interpolation=cv2.INTER_AREA)
-    tileSize = tileSizeSetting // 4
-
-    if rotDegree != 0.0:
-        rotated = RotateWithoutCrop(im, rotDegree)
-    else:
-        rotated = im
-    _,tiles = getNotEmptyTiles(rotated, tileSize, emptyCuttOffQuantile=None, emptyCutOffMaxThreshold=10)
+def getTiles(im):
+    #print("getTiles: image type {0}. shape {1}. dtype {2}".format(type(im),im.shape, im.dtype))
+    
+    _,tiles = getNotEmptyTiles(im, tileSize, emptyCutOffMaxThreshold=10)
 
     if len(tiles) > trainSequenceLength:
         tiles = tiles[0:trainSequenceLength]
@@ -294,12 +245,10 @@ def getTiles(filename, rotDegree):
                 for j in range(0,len(tiles)):
                     tiles[j] = GCNtoRGB_uint8(GCN(tiles[j], lambdaTerm=0.0, precomputedContrast=meanContrast, precomputedMean=meanMean), cutoffSigmasRange=2.0)
     
-    if outImageSize != tileSize:
-        resizedTiles = []
-        for tile in tiles:
-            resizedTiles.append(cv2.resize(tile, dsize=(outImageSize, outImageSize), interpolation=cv2.INTER_AREA))
-        tiles = resizedTiles
-    return tiles
+    tilePack = np.stack(tiles)
+    #print("result of getTiles: shape {0}. dtype {1}".format(tilePack.shape, tilePack.dtype))
+
+    return tilePack
 
 def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
     imageSize = outImageSize
@@ -408,8 +357,78 @@ def augment(imagePack):
         return image
     return tf.map_fn(augmentSingle, imagePack)
 
+def GetInferenceDataset(fullPaths, rotDegree):
+    filenameDs = tf.data.Dataset.from_tensor_slices(fullPaths)
 
-filenameDs = tf.data.Dataset.from_tensor_slices(fullPaths)
+    def trimBlackMarginsTF(imageTensor):
+        withoutMargins = tf.numpy_function(TrimBlackPaddings,[imageTensor], Tout=tf.uint8)
+        return withoutMargins
+
+    @tf.function
+    def rotateTF(imageTensor):
+        withoutMargins = trimBlackMarginsTF(imageTensor)
+
+        if abs(rotDegree % 360.0) < 0.1:
+            rotated = tfa.image.rotate(withoutMargins, rotDegree, interpolation="BILINEAR")
+            withoutMargins2 = trimBlackMarginsTF(rotated)
+            return withoutMargins2
+        else:
+            return withoutMargins
+    
+
+    def decodeTiffTF(pathTensor):
+        def decodeTiff(path):
+            path = path.decode("utf-8")
+            image = io.MultiImage(path)[1] 
+            #print("decoded image type {0}. shape {1}. dtype {2}".format(type(image),image.shape, image.dtype))
+            return image
+        return tf.numpy_function(decodeTiff,[pathTensor], Tout=(tf.uint8))
+
+    def loadAsTilePackTF(hiResImageTensor):
+        def loadAsTilePack(hiResImage):
+            tiles = getTiles(hiResImage)
+            return tiles
+        tensorPack = tf.numpy_function(loadAsTilePack, [hiResImageTensor], Tout=tf.uint8)
+        return tf.reshape(tensorPack,[-1, tileSize, tileSize, 3])
+
+    def debugPrinterTF(tensor):
+        def debugPrinter(data):
+            print("debug printer. shape {0}. dtype {1}".format(data.shape, data.dtype))
+            return data
+        return tf.numpy_function(debugPrinter,[tensor],tf.uint8)
+
+    def resizePackTF(tilePack):
+        shaped = tf.reshape(tilePack,[-1, tileSize, tileSize, 3])
+        resized = tf.image.resize(shaped, [outImageSize, outImageSize], method=tf.image.ResizeMethod.GAUSSIAN)
+        conveted = tf.cast(tf.round(resized),tf.uint8)
+        return conveted
+
+    @tf.function
+    def negativeImage(image):
+        #print("in negate: image is {0}".format(image))
+        return 255 - image
+
+    def process(tilePack):
+        return augment(coerceSeqSize(tilePack,trainSequenceLength))
+
+    #print("filenameDs:")
+    #print(filenameDs)
+
+    #tf.data.experimental.AUTOTUNE
+    #.map(debugPrinterTF) \
+
+    imagesDs = filenameDs \
+        .map(decodeTiffTF, num_parallel_calls=cpuCores *2, deterministic=True) \
+        .map(negativeImage, num_parallel_calls=tf.data.experimental.AUTOTUNE, deterministic= True) \
+        .map(rotateTF, num_parallel_calls=tf.data.experimental.AUTOTUNE, deterministic= True) \
+        .map(loadAsTilePackTF, num_parallel_calls=tf.data.experimental.AUTOTUNE, deterministic= True) \
+        .map(resizePackTF, num_parallel_calls=tf.data.experimental.AUTOTUNE, deterministic= True) \
+        .map(process, num_parallel_calls=tf.data.experimental.AUTOTUNE, deterministic= True) \
+        .batch(batchSize, drop_remainder=False) \
+        .prefetch(prefetchSize)
+
+    return imagesDs
+
 
 model,backbone = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
 print("model constructed")
@@ -417,6 +436,7 @@ if backboneFrozen:
     backbone.trainable = False
 else:
     backbone.trainable = True
+
 
 
 def predict(checkpointPath, rotDegree):
@@ -428,29 +448,10 @@ def predict(checkpointPath, rotDegree):
         print("Pretrained weights file does not exist: {0}".format(checkpointPath))
         exit(1)
 
-    def loadAsTilePackTf(pathTensor):
-        def loadAsTilePack(path):
-            path = path.numpy().decode("utf-8")
-            tiles = getTiles(path, rotDegree)
-            return len(tiles),tf.cast(tf.stack(tiles),tf.uint8)
-        tensorLen,tensorPack = tf.py_function(loadAsTilePack, [pathTensor], Tout=(tf.int32,tf.uint8))
-        return tf.reshape(tensorPack,[tensorLen, outImageSize, outImageSize, 3])
-
-
-    def process(filename):
-        return augment(coerceSeqSize(loadAsTilePackTf(filename),trainSequenceLength))
-
-    #print("filenameDs:")
-    #print(filenameDs)
-
-    #tf.data.experimental.AUTOTUNE
-
-    imagesDs = filenameDs \
-        .map(process, num_parallel_calls=cpuCores * 2) \
-        .batch(batchSize, drop_remainder=False) \
-        .prefetch(prefetchSize)
-
+    imagesDs = GetInferenceDataset(fullPaths, rotDegree)
+        
     t1 = time.time()
+    #iterated = list(imagesDs.take(3).as_numpy_iterator())
     predicted = np.round(np.squeeze(model.predict(imagesDs,verbose=1))).astype(np.int32)
     t2 = time.time()
     print("predicted shape is {0}".format(predicted.shape))
