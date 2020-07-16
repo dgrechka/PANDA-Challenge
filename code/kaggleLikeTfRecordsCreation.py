@@ -146,24 +146,25 @@ def GetInferenceDataset(fullPaths, rotDegree):
         
         return image[firstCol:(lastCol+1), firstRow:(lastRow+1), :]
 
-    @tf.function
-    def EnlargeForRotation(image):
-        h,w,_ = image.shape
-        diag = math.sqrt(h*h + w*w)
-        diagInt = int(diag)
-        padH = diagInt - h
-        padW = diagInt - w
+    def EnlargeForRotationTF(imageTensor):
+        def EnlargeForRotation(image):
+            h,w,_ = image.shape
+            diag = math.sqrt(h*h + w*w)
+            diagInt = int(diag)
+            padH = diagInt - h
+            padW = diagInt - w
 
-        if diagInt > 32768:
-            print("WARN: image size is more than 32768 in RotateWithoutCrop. Will not rotate and return the image as is‬")
-            return image
+            if diagInt > 32768:
+                print("WARN: image size is more than 32768 in RotateWithoutCrop. Will not rotate and return the image as is‬")
+                return image
 
-        #print("padding")
-        paddedImage = np.pad(image, (
-            (padH // 2, padH // 2),
-            (padW // 2, padW // 2),
-            (0,0)))
-        return paddedImage
+            #print("padding")
+            paddedImage = np.pad(image, (
+                (padH // 2, padH // 2),
+                (padW // 2, padW // 2),
+                (0,0)))
+            return paddedImage
+        return tf.numpy_function(EnlargeForRotation, [imageTensor], tf.uint8)
 
     def getNotEmptyTiles(image, tileSize, precomputedTileIndices=None, emptyCutOffMaxThreshold = 25):
         '''Returns the list of non-empty tile indeces (tile_row_idx,tile_col_idx) and corresponding list of tile npArrays).
@@ -228,7 +229,7 @@ def GetInferenceDataset(fullPaths, rotDegree):
             resIdx.append(idxElem)
             resData.append(dataElem)
             sortedIntencites.append(sortedIntence)
-    #    print("sorted intencies :{0}".format(sortedIntencites))
+
         indexResult = resIdx
             
         return indexResult,resData
@@ -314,7 +315,7 @@ def GetInferenceDataset(fullPaths, rotDegree):
                 red = np.mean(tile[:,:,0]) # supposing RGB, not BGR
                 green = np.mean(tile[:,:,1])
                 #print("[R:{0}\tG:{1}; ratio {2}".format(red,green, green/red))
-                if green / red >= 1.2: # green must be at least 1.5 times more than red (to remove white marker tiles)
+                if (red > 0) and (green / red >= 1.2): # green must be at least 1.5 times more than red (to remove white marker tiles)
                     nonRedTiles.append(tile)
             if len(nonRedTiles)>0:
                 tiles = nonRedTiles
@@ -390,7 +391,8 @@ def GetInferenceDataset(fullPaths, rotDegree):
         withoutMargins = trimBlackMarginsTF(imageTensor)
 
         if abs(rotDegree % 360.0) > 0.1:
-            rotated = tfa.image.rotate(withoutMargins, rotDegree, interpolation="BILINEAR")
+            enlarged = EnlargeForRotationTF(withoutMargins)
+            rotated = tfa.image.rotate(enlarged, rotDegree, interpolation="BILINEAR")
             withoutMargins2 = trimBlackMarginsTF(rotated)
             return withoutMargins2
         else:

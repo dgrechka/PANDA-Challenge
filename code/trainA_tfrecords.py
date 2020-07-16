@@ -52,6 +52,7 @@ DORate = trainConfig['DOrate']
 l2regAlpha = trainConfig['l2regAlpha']
 monitoredMetric = trainConfig['monitoredMetric']
 monitoredMode = trainConfig['monitoredMode']
+minMetricDelta = trainConfig["minMetricDelta"]
 minAllowedLR = trainConfig['minAllowedLR']
 reduceLrPatience = int(trainConfig['reduceLrPatience'])
 earlyStoppingPatience = int(trainConfig['earlyStoppingPatience'])
@@ -229,7 +230,7 @@ reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor=monitoredMetric, factor
 
 callbacks = [
     # Interrupt training if `val_loss` stops improving for over 2 epochs
-    tf.keras.callbacks.EarlyStopping(patience=earlyStoppingPatience, monitor=monitoredMetric,mode=monitoredMode),
+    tf.keras.callbacks.EarlyStopping(patience=earlyStoppingPatience, monitor=monitoredMetric,mode=monitoredMode, min_delta=minMetricDelta),
     # Write TensorBoard logs to `./logs` directory
     #tf.keras.callbacks.TensorBoard(log_dir=outputPath, histogram_freq = 5, profile_batch=0),
     tf.keras.callbacks.ModelCheckpoint(
