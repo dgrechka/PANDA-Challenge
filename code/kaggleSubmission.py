@@ -19,7 +19,6 @@ trainSequenceLength = 64
 tileSize = 256
 outImageSize = 224
 prefetchSize = multiprocessing.cpu_count() + 1
-DORate = 0.3
 
 cpuCores = multiprocessing.cpu_count()
 print("Detected {0} CPU cores".format(cpuCores))
@@ -34,6 +33,7 @@ if not isTestSetRun:
 imageCount = len(inputIdents)
 print("Found {0} files for inference".format(imageCount))
 fullPaths = [os.path.join(input_dir,"{0}.tiff".format(x)) for x in inputIdents]
+
 
 
 def GetInferenceDataset(fullPaths, rotDegree):
@@ -59,16 +59,28 @@ def GetInferenceDataset(fullPaths, rotDegree):
         return image[firstCol:(lastCol+1), firstRow:(lastRow+1), :]
 
     def EnlargeForRotationTF(imageTensor):
+        radiansDegree = rotDegree / 180.0 * math.pi
         def EnlargeForRotation(image):
             h,w,_ = image.shape
             diag = math.sqrt(h*h + w*w)
-            diagInt = int(diag)
-            padH = diagInt - h
-            padW = diagInt - w
+            alphaCos = w / diag
+            alpha = math.acos(alphaCos)
+            beta = alpha - radiansDegree
 
-            if diagInt > 32768:
-                print("WARN: image size is more than 32768 in RotateWithoutCrop. Will not rotate and return the image as is‬")
-                return image
+            w2 = diag * abs(math.cos(beta))
+            h2 = diag * abs(math.sin(beta))
+
+            beta2 = alpha + radiansDegree
+            w3 = diag * abs(math.cos(beta2))
+            h3 = diag * abs(math.sin(beta2))
+
+            w_ext = int(max(w2, w3, w))
+            h_ext = int(max(h2, h3, h))
+
+            padH = h_ext - h
+            padW = w_ext - w 
+
+            # print("init shape {0} {1}. rot {2}; pad h {3}; pad w {4}".format(h,w,rotDegree, padH, padW))
 
             #print("padding")
             paddedImage = np.pad(image, (
@@ -304,7 +316,8 @@ def GetInferenceDataset(fullPaths, rotDegree):
 
         if abs(rotDegree % 360.0) > 0.1:
             enlarged = EnlargeForRotationTF(withoutMargins)
-            rotated = tfa.image.rotate(enlarged, rotDegree, interpolation="BILINEAR")
+            degRad = rotDegree / 180.0 * math.pi
+            rotated = tfa.image.rotate(enlarged, degRad, interpolation="BILINEAR")
             withoutMargins2 = trimBlackMarginsTF(rotated)
             return withoutMargins2
         else:
@@ -436,7 +449,7 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
 
     return tf.keras.Model(name="PANDA_A", inputs=netInput, outputs=predOutScaled), denseNet
 
-model,backbone = constructModel(trainSequenceLength, DORate=0.3, l2regAlpha = 0.0)
+model,backbone = constructModel(trainSequenceLength, DORate=0.4, l2regAlpha = 1e-4)
 print("model constructed")
 if backboneFrozen:
     backbone.trainable = False
@@ -463,7 +476,7 @@ def predict(checkpointPath, rotDegree):
     print("predicted {0} samples in {1} sec. {2} sec per sample".format(imageCount,t2-t1,(t2-t1)/imageCount))
     return predicted
 
-predicted = predict(checkpoint_path, 0.0)
+predicted = predict(checkpoint_path, 30.0)
 
 predictedList = predicted.tolist()
 resDf = pd.DataFrame.from_dict({'image_id':inputIdents , 'isup_grade': predictedList})
