@@ -1,0 +1,64 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../../../../code/tfEvaluate.py",
+            "Hash": "153CF2855B70D32DCC2A30EC21D0E2C643E87635D7EAD9407994E6A2DE9BB765DA1609EB28C11A80F6AEF4EB62219E99DFB6D28E060EF45AD1CDD585E3B868D0"
+          },
+          {
+            "RelativePath": "../train2/*/",
+            "Hash": {
+              "fold_3": "D11BA011304AE21A46AEBC7BD3B9E7E8B63382246737BD0111172AF9E7B9B260695E9A97EB8DBA049227D1A83A408629C61A87F5C5D73493C32340B0FCE3A732"
+            }
+          },
+          {
+            "RelativePath": "../../../../data/trainWithClusters.csv",
+            "Hash": "9EF644F73FAF0B321F49602D25C306AA0F78EBEB792A9ECA3316315704EA3E5DF967B716EB27CFBEAC37510C6E0DD9A20CE38F47882052AA5B50A628D3A5FFBA"
+          },
+          {
+            "RelativePath": "../../../../data/singleImagePerCluster.csv",
+            "Hash": "E2AC8C3ED76EAC83DD69749A993CA357F8547215B5559A1AF2A3776BA69CA20D67FAEE2FDAEB37A0435F16CD0AA2D5137EB0CC76ED4E180A8D8035B775F12A5C"
+          },
+          {
+            "RelativePath": "../val_folds/*.csv",
+            "Hash": {
+              "fold_3": "D5E76488C6A5443E80639B7D059FFE7DC337CF9F8BD9CE4A0610E361A60C52C5699182F26DBC56F79906CE4EE1E6C4D894B4CA93523D3EDA6FB2AFE626AC24C4"
+            }
+          },
+          {
+            "RelativePath": "../../../../code/tfDataProcessing.py",
+            "Hash": "84A1933E4498A6AB2DB4A4AEAE57300836521C2F2CB5E27B54236091F5F1B73772E1607B72AA788CD901F4BB52D9B683820D16B6DCD520B8879EA0B4CAD8DB73"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "finalEvalutaion.*.csv",
+            "Hash": {
+              "fold_3": "E6744AA75AC24FAD142C52BF8E04499115130F74ABA7DF3F73126D9E01F3DEE9629B937F51604D537741036B90E44D5DA116C4CC86D68F4197DEDF5A1637893F"
+            }
+          },
+          {
+            "RelativePath": "finalConfusionMatrix.*.csv",
+            "Hash": {
+              "fold_3": "6AE89CE9BBE987EFBAB01DDDE42BF8B742661295DB0A063D8CEB0F142555740A40B74F42948F3E83C62578A1DE2DAACC733D4BFA067BE7EF73D565C23C659F79"
+            }
+          }
+        ],
+        "ResourceGroups": [],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "../../../..",
+        "Command": "python $in1 $in2/weights.hdf5 $in3 $in4 $in5 $out1 $out2 70",
+        "Signature": "AF014712C6E5EFEA2362B9D61DDE11BD6588BBDE",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

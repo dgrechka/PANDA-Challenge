@@ -1,0 +1,68 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../../../../code/trainA_3_tfrecords.py",
+            "Hash": "CD4CBD7A2D173701A3E5B89D8E693EFFD69999F5E24C3B7FB0669238CB46015F885AA32651470F40168B73CDE4975C708E4C75DC1A107332730FCCF39A528B67"
+          },
+          {
+            "RelativePath": "../../../../data/trainWithClusters.csv",
+            "Hash": "9EF644F73FAF0B321F49602D25C306AA0F78EBEB792A9ECA3316315704EA3E5DF967B716EB27CFBEAC37510C6E0DD9A20CE38F47882052AA5B50A628D3A5FFBA"
+          },
+          {
+            "RelativePath": "../../../../data/singleImagePerCluster.csv",
+            "Hash": "E2AC8C3ED76EAC83DD69749A993CA357F8547215B5559A1AF2A3776BA69CA20D67FAEE2FDAEB37A0435F16CD0AA2D5137EB0CC76ED4E180A8D8035B775F12A5C"
+          },
+          {
+            "RelativePath": "../val_folds/*.csv",
+            "Hash": {
+              "fold_3": "D5E76488C6A5443E80639B7D059FFE7DC337CF9F8BD9CE4A0610E361A60C52C5699182F26DBC56F79906CE4EE1E6C4D894B4CA93523D3EDA6FB2AFE626AC24C4"
+            }
+          },
+          {
+            "RelativePath": "../train/*/",
+            "Hash": {
+              "fold_3": "9754A9934F77A4ACF071D52887079F98319488E324C1692A75BC5B05E13E7842EA051F8F0652B143E799ACE972118F4D657025CF3DFCDC07B4747B1B294CADE2"
+            }
+          },
+          {
+            "RelativePath": "../../../../code/tfDataProcessing.py",
+            "Hash": "84A1933E4498A6AB2DB4A4AEAE57300836521C2F2CB5E27B54236091F5F1B73772E1607B72AA788CD901F4BB52D9B683820D16B6DCD520B8879EA0B4CAD8DB73"
+          },
+          {
+            "RelativePath": "../../../../code/tfQuadraticWeightedKappa.py",
+            "Hash": "7C1B33B9DFFBF2FBCF82598C7DEEE861AA9415887C1E3E5A6AF9E8CC420C3674A1CBD52840F67324CA2DC88BAB26A8EA5DB3F6E717CF912D050BBFCF6DC4A847"
+          },
+          {
+            "RelativePath": "../../../../code/modelA.py",
+            "Hash": "4FA8E65314CF2BDDF817500128EFAE9D2B475FBFD24FDB5A43404C39DF3C68EF07684CFF8F6318028C1E05C11FC35440F18847258F1AE8983AF31E55294F2D32"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "*/",
+            "Hash": {
+              "fold_3": "E9E58B02735B67D6C4D054A17C1547ABEA4CA0FA1F11A3D7A51A99E2B0572B08C4CAFE86CFDF1A22F91E1E183CE02BB8C7D18B1CD8070C921BB3D91B0F18C41E"
+            }
+          }
+        ],
+        "ResourceGroups": [
+          "gpu"
+        ],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "../../../..",
+        "Command": "python $in1 $in2 $in3 $in4 $in5/weights.hdf5 $out1 70",
+        "Signature": "82CAC545D2EF4F2AEBA511CB347AAB9A2C6FC5DD",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

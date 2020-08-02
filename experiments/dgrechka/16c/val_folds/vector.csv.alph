@@ -1,0 +1,15 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "SourceOrigin",
+    "Fields": [
+      {
+        "RelativePath": "*.csv",
+        "Hash": {
+          "fold_3": "F85E3DE8E5C97B3BB9C284025021572470AD4420C85778151732F633C337A452B1684B8BA560C4C4A412CF80C01579E9F997F7D4CA29F47818FFC4D6BA02C487"
+        }
+      }
+    ]
+  },
+  "IsTracked": false
+}

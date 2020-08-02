@@ -1,0 +1,54 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../../../../code/tfEvaluate.py",
+            "Hash": "4EC43A4B58024C1F7141E9564DC80880F0DD9C3D051AA91F810FD00FDE7A7D56AE039246714766E24D64875586FBEB33AE1910FD7ACF601134BD17E833344FA9"
+          },
+          {
+            "RelativePath": "../train2/*/",
+            "Hash": {
+              "fold_3": "EA0275878136674AC77E5E1C16C30794B2B8C648D04C8B93A030D041E710A814DA51856919909954ADA08E7F990E16F93CA6647A6EBC6DA3493222893ED45BFD"
+            }
+          },
+          {
+            "RelativePath": "../../../../data/kaggleOfficial/train.csv",
+            "Hash": "9C4CCB14E63AE5DFB8125B1CED079405E2664E8EF20A7FA6363F6A50BBCCA4C28392474EBD8C654161F2EFF4CAF89E7A3A662BF80B4465DC8C24C6FAD803D806"
+          },
+          {
+            "RelativePath": "../../../../code/tfDataProcessing.py",
+            "Hash": "84A1933E4498A6AB2DB4A4AEAE57300836521C2F2CB5E27B54236091F5F1B73772E1607B72AA788CD901F4BB52D9B683820D16B6DCD520B8879EA0B4CAD8DB73"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "finalEvalutaion.*.csv",
+            "Hash": {
+              "fold_3": "F2015721BBBEFF3079BF71FD61FF0023A1FD83CF61152A37F5F7DE7F48E66A62EA83DB64F0A21226DD359E3D4AC4F061F5D877302AB3EDF5E46D3008C87C002B"
+            }
+          },
+          {
+            "RelativePath": "finalConfusionMatrix.*.csv",
+            "Hash": {
+              "fold_3": "76BD695C677281846C62E275DC06A79A0716E0B43ADF3A62610641C63C8D05C9D44D91A2B9E2BF46CAADEAF9CDFF2F2A792BA2681D76F435A6AE6093ABE50504"
+            }
+          }
+        ],
+        "ResourceGroups": [],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "../../../..",
+        "Command": "python $in1 $in2/weights.hdf5 $in3 $out1 $out2 64",
+        "Signature": "014285AD488E34B9A2DC9DF9E5367D3E8A458634",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

@@ -11,7 +11,6 @@ import cv2
 
 isTestSetRun = False
 input_dir = '/mnt/ML/Panda/officialData/train_images/'
-checkpoint_path = 'experiments/dgrechka/37c_bak/train2/fold_3/weights.hdf5'
 out_file = 'submission.csv'
 backboneFrozen = True
 batchSize = 4
@@ -19,6 +18,13 @@ trainSequenceLength = 64
 tileSize = 256
 outImageSize = 224
 prefetchSize = multiprocessing.cpu_count() + 1
+
+modelsToEnsamble = [
+    ('experiments/dgrechka/37c/train2/fold_2/weights.hdf5', 0.0),
+    ('experiments/dgrechka/37c/train2/fold_3/weights.hdf5', 0.0),
+    ('experiments/dgrechka/37c/train2/fold_2/weights.hdf5', 30.0),
+    ('experiments/dgrechka/37c/train2/fold_3/weights.hdf5', 60.0),
+]
 
 cpuCores = multiprocessing.cpu_count()
 print("Detected {0} CPU cores".format(cpuCores))
@@ -28,7 +34,7 @@ inputIdents = [x[0:-5] for x in inputFiles if x.endswith(".tiff")]
 
 if not isTestSetRun:
     inputIdents.sort()
-    inputIdents = inputIdents[0:128]
+    inputIdents = inputIdents[0:64]
 
 imageCount = len(inputIdents)
 print("Found {0} files for inference".format(imageCount))
@@ -451,6 +457,7 @@ def constructModel(seriesLen, DORate=0.2, l2regAlpha = 1e-3):
 
 model,backbone = constructModel(trainSequenceLength, DORate=0.4, l2regAlpha = 1e-4)
 print("model constructed")
+print(model.summary())
 if backboneFrozen:
     backbone.trainable = False
 else:
@@ -470,17 +477,35 @@ def predict(checkpointPath, rotDegree):
         
     t1 = time.time()
     #iterated = list(imagesDs.take(3).as_numpy_iterator())
-    predicted = np.round(np.squeeze(model.predict(imagesDs,verbose=1))).astype(np.int32)
+    print("predicting using {0} with deg {1}".format(checkpointPath, rotDegree))
+    predicted = np.squeeze(model.predict(imagesDs,verbose=1))
     t2 = time.time()
     print("predicted shape is {0}".format(predicted.shape))
     print("predicted {0} samples in {1} sec. {2} sec per sample".format(imageCount,t2-t1,(t2-t1)/imageCount))
     return predicted
 
-predicted = predict(checkpoint_path, 30.0)
+modelsCount = len(modelsToEnsamble)
+accumulatedPrediction = None
+perModelPrediction = []
+for (checkpoint_path,rotDegree) in modelsToEnsamble:
+    predicted = predict(checkpoint_path, rotDegree)
+    perModelPrediction.append(predicted)
+    if accumulatedPrediction is None:
+        accumulatedPrediction = np.copy(predicted)
+    else:
+        accumulatedPrediction = np.add(accumulatedPrediction, predicted)
+ensembledPrediction = accumulatedPrediction / float(modelsCount)
 
-predictedList = predicted.tolist()
+predictedList = np.round(ensembledPrediction).astype(np.int32).tolist()
 resDf = pd.DataFrame.from_dict({'image_id':inputIdents , 'isup_grade': predictedList})
 resDf.sort_values(by=['image_id'], inplace=True, ascending=True)
 resDf.to_csv(out_file, index=False)
+
+perModelDict = {'image_id':inputIdents , 'isup_grade': predictedList, 'ensembled':ensembledPrediction.tolist()}
+for i in range(0,modelsCount):
+    perModelDict["isup_grade_{0}".format(i)] = perModelPrediction[i].tolist()
+resDf2 = pd.DataFrame.from_dict(perModelDict)
+resDf2.sort_values(by=['image_id'], inplace=True, ascending=True)
+resDf2.to_csv("per_model_predictions.csv", index=False)
 
 print('Done')

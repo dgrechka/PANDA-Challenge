@@ -1,0 +1,48 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../../../code/tfEvaluate.py",
+            "Hash": null
+          },
+          {
+            "RelativePath": "train/*/",
+            "Hash": null
+          },
+          {
+            "RelativePath": "../../../data/kaggleOfficial/train.csv",
+            "Hash": null
+          },
+          {
+            "RelativePath": "../../../code/tfDataProcessing.py",
+            "Hash": null
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "finalEvalutaion.csv",
+            "Hash": null
+          },
+          {
+            "RelativePath": "finalConfusionMatrix.csv",
+            "Hash": null
+          }
+        ],
+        "ResourceGroups": [],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "../../..",
+        "Command": "python $in1 $in2/weights.hdf5 $in3 $out1 $out2 15",
+        "Signature": "BD0004BDE2E0FB85284277282EA00585B502B0D5",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

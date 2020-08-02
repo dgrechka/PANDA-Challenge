@@ -1,0 +1,58 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "CommandOrigin",
+    "Fields": [
+      {
+        "Inputs": [
+          {
+            "RelativePath": "../../../../code/pretrainA_tfrecords.py",
+            "Hash": "156A3F9D8B48E0141FD97C67DCAFCC85D9064B9B7072F5313169D4A80804807EF014196CCA27F2F69D9D0F57B270C8AF5916D8A6109613FF5C0EB14C97895B9F"
+          },
+          {
+            "RelativePath": "../../../../data/kaggleOfficial/train.csv",
+            "Hash": "9C4CCB14E63AE5DFB8125B1CED079405E2664E8EF20A7FA6363F6A50BBCCA4C28392474EBD8C654161F2EFF4CAF89E7A3A662BF80B4465DC8C24C6FAD803D806"
+          },
+          {
+            "RelativePath": "../val_folds/*.csv",
+            "Hash": {
+              "fold_3": "F85E3DE8E5C97B3BB9C284025021572470AD4420C85778151732F633C337A452B1684B8BA560C4C4A412CF80C01579E9F997F7D4CA29F47818FFC4D6BA02C487"
+            }
+          },
+          {
+            "RelativePath": "../../../../code/tfDataProcessing.py",
+            "Hash": "B9AD202FDFA3364E7939FBCCE9B88C160D85EB836ABB72B78240E19B9C276DE12BFCDBBA999D0EADDC9F382CA953EC5FF5A22CF40D5AD106B7B2920A2F7AB755"
+          },
+          {
+            "RelativePath": "../../../../code/tfQuadraticWeightedKappa.py",
+            "Hash": "A0B7D050829DA61317DEB390C63F07F66FDDB0DF8F4AF8227B0DEF0F54F4B2E8519F34F1D4994B57E4DEF8F3E607208171E54F38AC761AEF29B1C2560E583807"
+          },
+          {
+            "RelativePath": "../../../../code/modelA.py",
+            "Hash": "6AF142021FC6F7411DED364181DFBBB65122606110FAFF377E1D46BC07636FB9C1F84F326902BF2BC1D1143014F041EBF0192988A44E61208665A253FB135DF4"
+          }
+        ],
+        "Outputs": [
+          {
+            "RelativePath": "*/",
+            "Hash": {
+              "fold_3": "55189820B26413C7317C05200274A16B81BFA7B702CFF72433F53E52DEE3B8D832E8F0703223C265D262D61E0B0099775B6A63AC1098DEF3FCD2DE51CC589967"
+            }
+          }
+        ],
+        "ResourceGroups": [
+          "gpu"
+        ],
+        "SuccessfulExitCodes": [
+          0
+        ],
+        "OutputIndex": 0,
+        "WorkingDirectory": "../../../..",
+        "Command": "python $in1 $in2 $in3 $out1 64",
+        "Signature": "340A328C7446BA47389633C88556B7ED210C16A5",
+        "OutputsCleanDisabled": false
+      }
+    ]
+  },
+  "IsTracked": false
+}

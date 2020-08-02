@@ -1,0 +1,15 @@
+{
+  "FileFormatVersion": 1,
+  "Origin": {
+    "Case": "SourceOrigin",
+    "Fields": [
+      {
+        "RelativePath": "*/",
+        "Hash": {
+          "fold_3": "918AC8C97A2E2287F8A07B7E6D904B12C92AA04E5FF07918F0256B7217554B64CBB269D088A4B424263A86C8808BC86FDEC9AC2065E6D0235F75B5C29AE00238"
+        }
+      }
+    ]
+  },
+  "IsTracked": false
+}
